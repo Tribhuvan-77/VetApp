@@ -112,6 +112,9 @@ def post_pets_update(request:Request,id: int = Form(...), name: str = Form(...),
     db.commit()
     db.refresh(pet)
 
+    response=RedirectResponse(url="/",status_code=303)
+    return response
+
 
 @app.get("/pets/{pet_id}")
 def get_petsid(request:Request,pet_id:int,db=Depends(get_db)):

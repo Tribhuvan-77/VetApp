@@ -3,7 +3,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from Database.database import Base,engine,get_db
 from Database.models import Pets,Visits
-from schemas import Valid_Pets
+from schemas import Valid_Pets,Valid_Visits
 
 from fastapi.templating import Jinja2Templates
 from datetime import datetime,UTC,date
@@ -160,13 +160,37 @@ def get_pet_createvisit(request:Request,pet_id:int,db=Depends(get_db)):
 def post_pet_createvisit(request:Request,pet_id:int,reason: str = Form(...),notes: str = Form(...),visit_date: date = Form(...),db=Depends(get_db)):
 
     visit=Visit(pet_id,reason,notes,visit_date)
+    try:
+      validated_visit=Valid_Visits.model_validate(visit)
+    except Exception as e:
+        raise HTTPException(status_code=400,detail=str(e))
 
-    db_visit=Visits(pet_id=visit.pet_id,reason=visit.reason,notes=visit.notes,visit_date=visit.visit_date,created_at=datetime.now(UTC))
+    db_visit=Visits(pet_id=validated_visit.pet_id,reason=validated_visit.reason,notes=validated_visit.notes,visit_date=validated_visit.visit_date,created_at=datetime.now(UTC))
     db.add(db_visit)
     db.commit()
 
     response=RedirectResponse(url="/pets/{pet_id}/visits",status_code=303)
     return response
+
+@app.get("/pets/{pet_id}/visits")
+def get_pets_create(pet_id:int,db=Depends(get_db)):
+    stmt=select(Visits.pet_id,Visits.reason,Visits.notes,Visits.visit_date).where(Visits.pet_id==pet_id)
+    db_visits = db.execute(stmt).all()
+
+    resp_list = []
+
+    for visit in db_visits:
+        resp_dict = {}
+        resp_dict["pet_id"] = visit[0]
+        resp_dict["reason"] = visit[1]
+        resp_dict["notes"] = visit[2]
+        resp_dict["visit_date"] = visit[3]
+
+        resp_list.append(resp_dict)
+
+    return resp_list
+
+
 
 
 

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Update Pet</title>
+</head>
+<body>
+
+    <h2>Update Pet Details</h2>
+
+    <form action="/pets/update" method="post">
+
+        <input type="hidden" name="id" value="{{ pet.id }}">
+
+        <label>Name:</label>
+        <input type="text" name="name" value="{{ pet.name }}" required>
+        <br><br>
+
+        <label>Species:</label>
+        <input type="text" name="species" value="{{ pet.species }}" required>
+        <br><br>
+
+        <label>Breed:</label>
+        <input type="text" name="breed" value="{{ pet.breed }}" required>
+        <br><br>
+
+        <label>Age:</label>
+        <input type="number" name="age" value="{{ pet.age }}" required>
+        <br><br>
+
+        <label>Owner Name:</label>
+        <input type="text" name="owner_name" value="{{ pet.owner_name }}" required>
+        <br><br>
+
+        <label>Owner Phone:</label>
+        <input type="text" name="owner_phone" value="{{ pet.owner_phone }}" required>
+        <br><br>
+
+        <button type="submit">Update Pet</button>
+
+    </form>
+
+</body>
+</html>

@@ -6,7 +6,7 @@ from Database.models import Pets,Visits
 from schemas import Valid_Pets
 
 from fastapi.templating import Jinja2Templates
-from datetime import datetime,UTC
+from datetime import datetime,UTC,date
 
 #this creates table for all the models that inherit base
 Base.metadata.create_all(bind=engine)
@@ -146,7 +146,7 @@ def get_petsid(request:Request,pet_id:int,db=Depends(get_db)):
     return resp_dict
 
 @app.get("/pets/{pet_id}/create_visits")
-def get_pet_visit(request:Request,pet_id:int,db=Depends(get_db)):
+def get_pet_createvisit(request:Request,pet_id:int,db=Depends(get_db)):
     stmt=select(Pets).where(Pets.id==pet_id)
     db_pet = db.execute(stmt).scalar_one_or_none()
 
@@ -157,16 +157,18 @@ def get_pet_visit(request:Request,pet_id:int,db=Depends(get_db)):
         return response
     
 @app.post("/pets/{pet_id}/create_visits")
-def post_pet_visit(request:Request,pet_id:int,reason: str = Form(...),notes: str = Form(...),visit_date: str = Form(...),db=Depends(get_db)):
+def post_pet_createvisit(request:Request,pet_id:int,reason: str = Form(...),notes: str = Form(...),visit_date: date = Form(...),db=Depends(get_db)):
 
-    visit=Visit(pet_id,reason,notes,notes,visit_date)
+    visit=Visit(pet_id,reason,notes,visit_date)
 
-    db_visit=Visits(pet_id=visit.pet_id,reason=visit.reason,notes=visit.notes,visit_date=visit.visit_date)
+    db_visit=Visits(pet_id=visit.pet_id,reason=visit.reason,notes=visit.notes,visit_date=visit.visit_date,created_at=datetime.now(UTC))
     db.add(db_visit)
     db.commit()
 
-    response=RedirectResponse("url=/pets/{pet_id}/visits",status_code=303)
+    response=RedirectResponse(url="/pets/{pet_id}/visits",status_code=303)
     return response
+
+
 
 
 

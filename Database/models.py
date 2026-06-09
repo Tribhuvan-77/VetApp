@@ -1,8 +1,8 @@
 from Database.database import Base
 
-from sqlalchemy import Integer,String,Text,ForeignKey,TIMESTAMP,DateTime
+from sqlalchemy import Integer,String,Text,ForeignKey,TIMESTAMP,DateTime,Date
 from sqlalchemy.orm import Mapped,mapped_column
-from datetime import datetime
+from datetime import datetime,date
 
 class Pets(Base):
 
@@ -19,12 +19,11 @@ class Pets(Base):
 
 class Visits(Base):
 
-    __tablename__="Vists"
+    __tablename__="Visits"
 
     id:Mapped[int]=mapped_column(Integer,primary_key=True,index=True)
     pet_id:Mapped[int]=mapped_column(Integer,ForeignKey(Pets.id),nullable=False)
     reason:Mapped[str]=mapped_column(String,nullable=False)
     notes:Mapped[str]=mapped_column(String,nullable=False)
     visit_date:Mapped[datetime]=mapped_column(DateTime,nullable=False)
-    created_at:Mapped[datetime]=mapped_column(TIMESTAMP,nullable=False)
-    
+    created_at:Mapped[date]=mapped_column(Date,nullable=False)

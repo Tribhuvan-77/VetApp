@@ -60,7 +60,8 @@ def get_pets(request:Request,db=Depends(get_db)):
 def get_createpets(request:Request):
     response=templates.TemplateResponse(request,"create.html")
     return response
-@app.post("/pets/create")
+
+@app.post("/pets/create",tags=["Pets"])
 def post_createpets(request:Request,name:str=Form(...),species:str=Form(...),breed:str=Form(...),age:int=Form(...),owner_name:str=Form(...),owner_phone:str=Form(...),db=Depends(get_db)):
     pet=Pet(name,species,breed,age,owner_name,owner_phone)
     try:

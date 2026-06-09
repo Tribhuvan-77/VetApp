@@ -46,7 +46,7 @@ def get_home(request:Request):
     response=templates.TemplateResponse(request,"home.html")
     return response
 
-@app.get("/pets")
+@app.get("/pets",tags=["Pets"])
 def get_pets(request:Request,db=Depends(get_db)):
     stmt=select(Pets.id,Pets.name)
     db_user=db.execute(stmt).all()
@@ -56,7 +56,7 @@ def get_pets(request:Request,db=Depends(get_db)):
     return resp_dict
 
 
-@app.get("/pets/create")
+@app.get("/pets/create",tags=["Pets"])
 def get_createpets(request:Request):
     response=templates.TemplateResponse(request,"create.html")
     return response
@@ -74,13 +74,13 @@ def post_createpets(request:Request,name:str=Form(...),species:str=Form(...),bre
     response=RedirectResponse(url="/",status_code=303)
     return response
 
-@app.get("/pets/delete")
+@app.get("/pets/delete",tags=["Pets"])
 def get_pets_delete(request:Request):
     response=templates.TemplateResponse(request,"delete.html")
     return response
 
 
-@app.post("/pets/delete")
+@app.post("/pets/delete",tags=["Pets"])
 def delete_pets_delete(request:Request,db=Depends(get_db),id:int=Form(...)):
     stmt=select(Pets).where(Pets.id==id)
     pet=db.scalar(stmt)
@@ -94,12 +94,12 @@ def delete_pets_delete(request:Request,db=Depends(get_db),id:int=Form(...)):
     response=RedirectResponse(url="/",status_code=303)
     return response
 
-@app.get("/pets/update")
+@app.get("/pets/update",tags=["Pets"])
 def get_pets_update(request:Request):
     response=templates.TemplateResponse(request,"check.html")
     return response
 
-@app.post("/pets/check")
+@app.post("/pets/check",tags=["Pets"])
 def post_pets_check(request:Request,id:int=Form(...),db=Depends(get_db)):
     stmt=select(Pets).where(Pets.id==id)
     db_pet = db.execute(stmt).scalar_one_or_none()
@@ -110,7 +110,7 @@ def post_pets_check(request:Request,id:int=Form(...),db=Depends(get_db)):
         return response
     else:
         raise HTTPException(status_code=400,detail="id not valid")
-@app.post("/pets/update")
+@app.post("/pets/update",tags=["Pets"])
 def post_pets_update(request:Request,id: int = Form(...), name: str = Form(...), species: str = Form(...), breed: str = Form(...), age: int = Form(...), owner_name: str = Form(...), owner_phone: str = Form(...),db=Depends(get_db)):
     pet = db.scalar(select(Pets).where(Pets.id == id))
 
@@ -129,7 +129,7 @@ def post_pets_update(request:Request,id: int = Form(...), name: str = Form(...),
     return response
 
 
-@app.get("/pets/{pet_id}")
+@app.get("/pets/{pet_id}",tags=["Pets"])
 def get_petsid(request:Request,pet_id:int,db=Depends(get_db)):
     stmt=select(Pets).where(Pets.id==pet_id)
     db_pet = db.execute(stmt).scalar_one_or_none()
@@ -145,7 +145,7 @@ def get_petsid(request:Request,pet_id:int,db=Depends(get_db)):
 
     return resp_dict
 
-@app.get("/pets/{pet_id}/create_visits")
+@app.get("/pets/{pet_id}/create_visits",tags=["Visits"])
 def get_pet_createvisit(request:Request,pet_id:int,db=Depends(get_db)):
     stmt=select(Pets).where(Pets.id==pet_id)
     db_pet = db.execute(stmt).scalar_one_or_none()
@@ -156,7 +156,7 @@ def get_pet_createvisit(request:Request,pet_id:int,db=Depends(get_db)):
         response=templates.TemplateResponse(request,"create_visit.html",{"pet_id":pet_id})
         return response
     
-@app.post("/pets/{pet_id}/create_visits")
+@app.post("/pets/{pet_id}/create_visits",tags=["Visits"])
 def post_pet_createvisit(request:Request,pet_id:int,reason: str = Form(...),notes: str = Form(...),visit_date: date = Form(...),db=Depends(get_db)):
 
     visit=Visit(pet_id,reason,notes,visit_date)
@@ -172,7 +172,7 @@ def post_pet_createvisit(request:Request,pet_id:int,reason: str = Form(...),note
     response=RedirectResponse(url="/pets/{pet_id}/visits",status_code=303)
     return response
 
-@app.get("/pets/{pet_id}/visits")
+@app.get("/pets/{pet_id}/visits",tags=["Visits"])
 def get_pets_create(pet_id:int,db=Depends(get_db)):
     stmt=select(Visits.pet_id,Visits.reason,Visits.notes,Visits.visit_date).where(Visits.pet_id==pet_id)
     db_visits = db.execute(stmt).all()

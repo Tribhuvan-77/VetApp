@@ -2,7 +2,7 @@ from fastapi import FastAPI,Request,Depends,Form,HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from Database.database import Base,engine,get_db
-from Database.models import Pets
+from Database.models import Pets,Visits
 from schemas import Valid_Pets
 
 from fastapi.templating import Jinja2Templates
@@ -29,7 +29,17 @@ class Pet:
         self.age=age
         self.owner_name=owner_name
         self.owner_phone=owner_phone
-        
+class Visit:
+    pet_id:int
+    reason:str
+    notes:str
+    visit_date:datetime
+
+    def __init__(self,pet_id,reason,notes,visit_date):
+        self.pet_id=pet_id
+        self.reason=reason
+        self.notes=notes
+        self.visit_date=visit_date      
 
 @app.get("/")
 def get_home(request:Request):
@@ -78,6 +88,9 @@ def delete_pets_delete(request:Request,db=Depends(get_db),id:int=Form(...)):
     if pet:
         db.delete(pet)
         db.commit()
+    else:
+        raise HTTPException(status_code=400,detail="id not found")
+    
     response=RedirectResponse(url="/",status_code=303)
     return response
 
@@ -131,6 +144,38 @@ def get_petsid(request:Request,pet_id:int,db=Depends(get_db)):
     resp_dict["created_at"]=db_pet.created_at
 
     return resp_dict
+
+@app.get("/pets/{pet_id}/create_visits")
+def get_pet_visit(request:Request,pet_id:int,db=Depends(get_db)):
+    stmt=select(Pets).where(Pets.id==pet_id)
+    db_pet = db.execute(stmt).scalar_one_or_none()
+
+    if not db_pet:
+        raise HTTPException(status_code=400,detail="No pet with the mentioned id")
+    elif db_pet:
+        response=templates.TemplateResponse(request,"create_visit.html",{"pet_id":pet_id})
+        return response
+    
+@app.post("/pets/{pet_id}/create_visits")
+def post_pet_visit(request:Request,pet_id:int,reason: str = Form(...),notes: str = Form(...),visit_date: str = Form(...),db=Depends(get_db)):
+
+    visit=Visit(pet_id,reason,notes,notes,visit_date)
+
+    db_visit=Visits(pet_id=visit.pet_id,reason=visit.reason,notes=visit.notes,visit_date=visit.visit_date)
+    db.add(db_visit)
+    db.commit()
+
+    response=RedirectResponse("url=/pets/{pet_id}/visits",status_code=303)
+    return response
+
+
+
+
+
+
+
+
+
 
 
     

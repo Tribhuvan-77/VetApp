@@ -2,8 +2,8 @@ from fastapi import FastAPI,Request,Depends,Form,HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from Database.database import Base,engine,get_db
-from Database.models import Pets,Visits
-from schemas import Valid_Pets,Valid_Visits
+from Database.models import Pets,Visits,Owners
+from schemas import Valid_Pets,Valid_Visits,Valid_Owners
 
 from fastapi.templating import Jinja2Templates
 from datetime import datetime,UTC,date
@@ -19,16 +19,14 @@ class Pet:
     species:str
     breed:str
     age:int
-    owner_name:str
-    owner_phone:str
+    owner_id:int
 
-    def __init__(self,name,species,breed,age,owner_name,owner_phone):
+    def __init__(self,name,species,breed,age,owner_id):
         self.name=name
         self.species=species
         self.breed=breed
         self.age=age
-        self.owner_name=owner_name
-        self.owner_phone=owner_phone
+        self.owner_id=owner_id
 class Visit:
     pet_id:int
     reason:str
@@ -39,20 +37,64 @@ class Visit:
         self.pet_id=pet_id
         self.reason=reason
         self.notes=notes
-        self.visit_date=visit_date      
+        self.visit_date=visit_date 
+
+class Owner:
+    name:str
+    phone:str
+    email:str
+
+    def __init__(self,name,phone,email):
+        self.name=name
+        self.phone=phone
+        self.email=email
+         
 
 @app.get("/")
 def get_home(request:Request):
     response=templates.TemplateResponse(request,"home.html")
     return response
+@app.get("/owner")
+def get_owner(db=Depends(get_db)):
+    stmt=select(Owners.id,Owners.name)
+    db_owner=db.execute(stmt).all()
+    resp_dict={}
+    for i in db_owner:
+        resp_dict[i[0]]=i[1]
+    return resp_dict
+@app.get("/owner/create",tags=["Owners"])
+def get_owner_create(request:Request):
+    response=templates.TemplateResponse(request,"create_owner.html")
+    return response
 
+@app.post("/owner/create",tags=["Owners"])
+def post_owner_create(request:Request,name:str=Form(...),phone:str=Form(...),email:str=Form(...),db=Depends(get_db)):
+    owner=Owner(name,phone,email)
+    try:
+      valid_owner=Valid_Owners.model_validate(owner)
+    except Exception as e:
+        raise HTTPException(status_code=400,detail=str(e))
+    stmt=select(Owners).where(Owners.name==valid_owner.name,Owners.phone==valid_owner.phone,Owners.email==valid_owner.email)
+    db_owner=db.execute(stmt).scalar_one_or_none()
+
+    if db_owner:
+        return "Owner already exists"
+    elif not db_owner:
+        db_owner=Owners(name=valid_owner.name,phone=valid_owner.phone,email=valid_owner.email,created_at=datetime.now(UTC))
+        db.add(db_owner)
+        db.commit()
+        response=RedirectResponse(url="/",status_code=303)
+        return response
+    
 @app.get("/pets",tags=["Pets"])
 def get_pets(request:Request,db=Depends(get_db)):
-    stmt=select(Pets.id,Pets.name)
+    stmt=select(Pets.id,Pets.name,Pets.owner_id)
     db_user=db.execute(stmt).all()
     resp_dict={}
     for i in db_user:
-        resp_dict[i[0]]=i[1]
+        resp_dict["pet_id"]=i[0]
+        resp_dict["pet_name"]=i[1]
+        resp_dict["owner_id"]=i[2]
     return resp_dict
 
 
@@ -63,17 +105,23 @@ def get_createpets(request:Request):
 
 @app.post("/pets/create",tags=["Pets"])
 def post_createpets(request:Request,name:str=Form(...),species:str=Form(...),breed:str=Form(...),age:int=Form(...),owner_name:str=Form(...),owner_phone:str=Form(...),db=Depends(get_db)):
-    pet=Pet(name,species,breed,age,owner_name,owner_phone)
-    try:
-      validated_entry=Valid_Pets.model_validate(pet)
-    except Exception as e:
-        raise HTTPException(status_code=400,detail=str(e))
-    db_pet=Pets(name=validated_entry.name,species=validated_entry.species,breed=validated_entry.breed,age=validated_entry.age,owner_name=validated_entry.owner_name,owner_phone=validated_entry.owner_phone,created_at=datetime.now(UTC))
-    db.add(db_pet)
-    db.commit()
+    stmt=select(Owners.id).where(Owners.name==owner_name,Owners.phone==owner_phone)
+    db_owner=db.execute(stmt).scalars().all()
+    if not db_owner:
+        response=RedirectResponse(url="/owner/create",status=303)
+    else:     
+        pet=Pet(name,species,breed,age,db_owner[0])
+        try:
+            validated_entry=Valid_Pets.model_validate(pet)
+        except Exception as e:
+            raise HTTPException(status_code=400,detail=str(e))
+        
+        db_pet=Pets(name=validated_entry.name,species=validated_entry.species,breed=validated_entry.breed,age=validated_entry.age,owner_id=validated_entry.owner_id,created_at=datetime.now(UTC))
+        db.add(db_pet)
+        db.commit()
 
-    response=RedirectResponse(url="/",status_code=303)
-    return response
+        response=RedirectResponse(url="/",status_code=303)
+        return response
 
 @app.get("/pets/delete",tags=["Pets"])
 def get_pets_delete(request:Request):
@@ -105,7 +153,6 @@ def post_pets_check(request:Request,id:int=Form(...),db=Depends(get_db)):
     stmt=select(Pets).where(Pets.id==id)
     db_pet = db.execute(stmt).scalar_one_or_none()
 
-
     if db_pet:
         response=templates.TemplateResponse(request,"update.html",{"pet":db_pet})
         return response
@@ -114,14 +161,16 @@ def post_pets_check(request:Request,id:int=Form(...),db=Depends(get_db)):
 @app.post("/pets/update",tags=["Pets"])
 def post_pets_update(request:Request,id: int = Form(...), name: str = Form(...), species: str = Form(...), breed: str = Form(...), age: int = Form(...), owner_name: str = Form(...), owner_phone: str = Form(...),db=Depends(get_db)):
     pet = db.scalar(select(Pets).where(Pets.id == id))
-
+    stmt=select(Owners.id).where(Owners.name==owner_name,Owners.phone==owner_phone)
+    db_owner=db.execute(stmt).scalars().all()
+    if not db_owner:
+        response=RedirectResponse(url="/owner/create",status=303)
     if pet:
         pet.name = name
         pet.species = species
         pet.breed = breed
         pet.age = age
-        pet.owner_name = owner_name
-        pet.owner_phone = owner_phone
+        pet.owner_id=db_owner[0]
 
     db.commit()
     db.refresh(pet)
@@ -140,10 +189,7 @@ def get_petsid(request:Request,pet_id:int,db=Depends(get_db)):
     resp_dict["species"]=db_pet.species
     resp_dict["breed"]=db_pet.breed
     resp_dict["age"]=db_pet.age
-    resp_dict["owner_name"]=db_pet.owner_name
-    resp_dict["owner_phone"]=db_pet.owner_phone
-    resp_dict["created_at"]=db_pet.created_at
-
+    resp_dict["owner_id"]=db_pet.owner_id
     return resp_dict
 
 @app.get("/pets/{pet_id}/create_visits",tags=["Visits"])
@@ -208,5 +254,8 @@ def get_pets_create(pet_id:int,db=Depends(get_db)):
     
 
     
+
+
+
 
 

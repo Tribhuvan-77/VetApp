@@ -4,6 +4,16 @@ from sqlalchemy import Integer,String,Text,ForeignKey,TIMESTAMP,DateTime,Date
 from sqlalchemy.orm import Mapped,mapped_column
 from datetime import datetime,date
 
+class Owners(Base):
+
+    __tablename__="Owners"
+
+    id:Mapped[int]=mapped_column(Integer,primary_key=True,index=True)
+    name:Mapped[str]=mapped_column(String,nullable=False)
+    phone:Mapped[str]=mapped_column(String,nullable=False)
+    email:Mapped[str]=mapped_column(String,nullable=False)
+    created_at:Mapped[datetime]=mapped_column(DateTime,nullable=False)
+
 class Pets(Base):
 
     __tablename__="Pets"
@@ -13,8 +23,7 @@ class Pets(Base):
     species:Mapped[str]=mapped_column(String,nullable=False)
     breed:Mapped[str]=mapped_column(String,nullable=False)
     age:Mapped[int]=mapped_column(Integer,nullable=False)
-    owner_name:Mapped[str]=mapped_column(String,nullable=False)
-    owner_phone:Mapped[str]=mapped_column(String,nullable=False)
+    owner_id:Mapped[int]=mapped_column(Integer,ForeignKey(Owners.id),nullable=False)
     created_at:Mapped[datetime]=mapped_column(TIMESTAMP,nullable=False)
 
 class Visits(Base):
@@ -27,3 +36,5 @@ class Visits(Base):
     notes:Mapped[str]=mapped_column(String,nullable=False)
     visit_date:Mapped[datetime]=mapped_column(DateTime,nullable=False)
     created_at:Mapped[date]=mapped_column(Date,nullable=False)
+
+

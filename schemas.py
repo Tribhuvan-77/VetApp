@@ -1,7 +1,14 @@
-from pydantic import BaseModel,ConfigDict,Field
+from pydantic import BaseModel,ConfigDict,Field,EmailStr
 from datetime import date
 
 from datetime import datetime
+
+
+class Valid_Owners(BaseModel):
+    model_config=ConfigDict(from_attributes=True)
+    name:str=Field(min_length=1,max_length=30)
+    phone:str=Field(min_length=10,max_length=10)
+    email:EmailStr
 
 class Valid_Pets(BaseModel):
     model_config=ConfigDict(from_attributes=True)
@@ -9,8 +16,7 @@ class Valid_Pets(BaseModel):
     species:str=Field(min_length=1,max_length=20)
     breed:str=Field(min_length=1,max_length=20)
     age:int=Field(ge=0)
-    owner_name:str=Field(min_length=1,max_length=10)
-    owner_phone:str=Field(min_length=10,max_length=10)
+    owner_id:int=Field(ge=0)
 
 class Valid_Visits(BaseModel):
     model_config = ConfigDict(from_attributes=True)

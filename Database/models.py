@@ -1,40 +1,53 @@
 from Database.database import Base
 
-from sqlalchemy import Integer,String,Text,ForeignKey,TIMESTAMP,DateTime,Date
-from sqlalchemy.orm import Mapped,mapped_column
-from datetime import datetime,date
+from sqlalchemy import Integer, String, ForeignKey, TIMESTAMP, DateTime, Date
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import datetime, date
+
 
 class Owners(Base):
 
-    __tablename__="Owners"
+    __tablename__ = "Owners"
 
-    id:Mapped[int]=mapped_column(Integer,primary_key=True,index=True)
-    name:Mapped[str]=mapped_column(String,nullable=False)
-    phone:Mapped[str]=mapped_column(String,nullable=False)
-    email:Mapped[str]=mapped_column(String,nullable=False)
-    created_at:Mapped[datetime]=mapped_column(DateTime,nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    phone: Mapped[str] = mapped_column(String, nullable=False)
+    email: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+    pets = relationship("Pets", back_populates="owners",cascade="all, delete-orphan")
+
 
 class Pets(Base):
 
-    __tablename__="Pets"
+    __tablename__ = "Pets"
 
-    id:Mapped[int]=mapped_column(Integer,primary_key=True,index=True)
-    name:Mapped[str]=mapped_column(String,nullable=False)
-    species:Mapped[str]=mapped_column(String,nullable=False)
-    breed:Mapped[str]=mapped_column(String,nullable=False)
-    age:Mapped[int]=mapped_column(Integer,nullable=False)
-    owner_id:Mapped[int]=mapped_column(Integer,ForeignKey(Owners.id),nullable=False)
-    created_at:Mapped[datetime]=mapped_column(TIMESTAMP,nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    species: Mapped[str] = mapped_column(String, nullable=False)
+    breed: Mapped[str] = mapped_column(String, nullable=False)
+    age: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    owner_id: Mapped[int] = mapped_column(Integer,ForeignKey("Owners.id"),nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False)
+
+    owners = relationship("Owners",back_populates="pets")
+
+    visits = relationship("Visits",back_populates="pet",cascade="all, delete-orphan")
+
 
 class Visits(Base):
 
-    __tablename__="Visits"
+    __tablename__ = "Visits"
 
-    id:Mapped[int]=mapped_column(Integer,primary_key=True,index=True)
-    pet_id:Mapped[int]=mapped_column(Integer,ForeignKey(Pets.id),nullable=False)
-    reason:Mapped[str]=mapped_column(String,nullable=False)
-    notes:Mapped[str]=mapped_column(String,nullable=False)
-    visit_date:Mapped[datetime]=mapped_column(DateTime,nullable=False)
-    created_at:Mapped[date]=mapped_column(Date,nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
+    pet_id: Mapped[int] = mapped_column(Integer,ForeignKey("Pets.id"),nullable=False)
 
+    reason: Mapped[str] = mapped_column(String, nullable=False)
+    notes: Mapped[str] = mapped_column(String, nullable=False)
+    visit_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[date] = mapped_column(Date, nullable=False)
+
+    pet = relationship("Pets",back_populates="visits")

@@ -52,9 +52,9 @@ class Owner:
 
 @app.get("/")
 def get_home(request:Request):
-    response=templates.TemplateResponse(request,"home.html")
-    return response
-@app.get("/owner")
+    return {"Welcome Home"}
+
+@app.get("/owner",tags=["Owners"])
 def get_owner(db=Depends(get_db)):
     stmt=select(Owners.id,Owners.name)
     db_owner=db.execute(stmt).all()
@@ -62,13 +62,10 @@ def get_owner(db=Depends(get_db)):
     for i in db_owner:
         resp_dict[i[0]]=i[1]
     return resp_dict
-@app.get("/owner/create",tags=["Owners"])
-def get_owner_create(request:Request):
-    response=templates.TemplateResponse(request,"create_owner.html")
-    return response
+
 
 @app.post("/owner/create",tags=["Owners"])
-def post_owner_create(request:Request,name:str=Form(...),phone:str=Form(...),email:str=Form(...),db=Depends(get_db)):
+def post_owner_create(request:Request,name:str,phone:str,email:str,db=Depends(get_db)):
     owner=Owner(name,phone,email)
     try:
       valid_owner=Valid_Owners.model_validate(owner)
@@ -76,39 +73,64 @@ def post_owner_create(request:Request,name:str=Form(...),phone:str=Form(...),ema
         raise HTTPException(status_code=400,detail=str(e))
     stmt=select(Owners).where(Owners.name==valid_owner.name,Owners.phone==valid_owner.phone,Owners.email==valid_owner.email)
     db_owner=db.execute(stmt).scalar_one_or_none()
+    print(db_owner)
 
     if db_owner:
-        return "Owner already exists"
+        raise HTTPException(status_code=400,detail="Owner already exists")
     elif not db_owner:
         db_owner=Owners(name=valid_owner.name,phone=valid_owner.phone,email=valid_owner.email,created_at=datetime.now(UTC))
         db.add(db_owner)
         db.commit()
-        response=RedirectResponse(url="/",status_code=303)
-        return response
+        return "Created owner entry"
+@app.delete("/owner/delete",tags=["Owners"])
+def delete_owner(id:int,db=Depends(get_db)):
+    stmt=select(Owners).where(Owners.id==id)
+    db_owner=db.execute(stmt).scalar_one_or_none()
+
+    if not db_owner:
+        raise HTTPException(status_code=400,detail="Owner does not exist")
+    else:
+        db.delete(db_owner)
+        db.commit()
+        return "Deleted the owner"
     
+
 @app.get("/pets",tags=["Pets"])
-def get_pets(request:Request,db=Depends(get_db)):
-    stmt=select(Pets.id,Pets.name,Pets.owner_id)
-    db_user=db.execute(stmt).all()
+def get_pets(db=Depends(get_db)):
+    stmt=select(Pets.id,Pets.name)
+    db_pets=db.execute(stmt).all()
+
     resp_dict={}
-    for i in db_user:
-        resp_dict["pet_id"]=i[0]
-        resp_dict["pet_name"]=i[1]
-        resp_dict["owner_id"]=i[2]
+    for i in db_pets:
+        resp_dict[i[0]]=i[1]
     return resp_dict
 
-
-@app.get("/pets/create",tags=["Pets"])
-def get_createpets(request:Request):
-    response=templates.TemplateResponse(request,"create.html")
-    return response
+@app.get("/pets/filter",tags=["Pets"])
+def get_pets(species: str | None = None,breed: str | None = None,owner_name: str | None = None,min_age: int | None = None,max_age: int | None = None,search: str | None = None,db=Depends(get_db)):
+    filter=[]
+    if species:
+        filter.append(Pets.species==species)
+    if breed:
+        filter.append(Pets.breed==breed)
+    if owner_name:
+        filter.append(Pets.owners.name==owner_name)
+    if min_age:
+        filter.append(Pets.age>=min_age)
+    if max_age:
+        filter.append(Pets.age<=max_age)
+    if search:
+        filter.append(Pets.name.lower().contains(search))
+    
+    stmt=select(Pets).where(filter)
+    db_pets=db.execute(stmt).all()
+    print(db_pets)
 
 @app.post("/pets/create",tags=["Pets"])
-def post_createpets(request:Request,name:str=Form(...),species:str=Form(...),breed:str=Form(...),age:int=Form(...),owner_name:str=Form(...),owner_phone:str=Form(...),db=Depends(get_db)):
+def post_createpets(request:Request,name:str,species:str,breed:str,age:int,owner_name:str,owner_phone:str,db=Depends(get_db)):
     stmt=select(Owners.id).where(Owners.name==owner_name,Owners.phone==owner_phone)
     db_owner=db.execute(stmt).scalars().all()
     if not db_owner:
-        response=RedirectResponse(url="/owner/create",status=303)
+        raise HTTPException(status_code=400,detail="owner not exisiting")
     else:     
         pet=Pet(name,species,breed,age,db_owner[0])
         try:
@@ -120,16 +142,9 @@ def post_createpets(request:Request,name:str=Form(...),species:str=Form(...),bre
         db.add(db_pet)
         db.commit()
 
-        response=RedirectResponse(url="/",status_code=303)
-        return response
+        return "Created the entry"
 
-@app.get("/pets/delete",tags=["Pets"])
-def get_pets_delete(request:Request):
-    response=templates.TemplateResponse(request,"delete.html")
-    return response
-
-
-@app.post("/pets/delete",tags=["Pets"])
+@app.delete("/pets/delete",tags=["Pets"])
 def delete_pets_delete(request:Request,db=Depends(get_db),id:int=Form(...)):
     stmt=select(Pets).where(Pets.id==id)
     pet=db.scalar(stmt)
@@ -140,85 +155,50 @@ def delete_pets_delete(request:Request,db=Depends(get_db),id:int=Form(...)):
     else:
         raise HTTPException(status_code=400,detail="id not found")
     
-    response=RedirectResponse(url="/",status_code=303)
-    return response
+    return "Deleted the pet entry"
 
-@app.get("/pets/update",tags=["Pets"])
-def get_pets_update(request:Request):
-    response=templates.TemplateResponse(request,"check.html")
-    return response
-
-@app.post("/pets/check",tags=["Pets"])
-def post_pets_check(request:Request,id:int=Form(...),db=Depends(get_db)):
+@app.post("/pets/update",tags=["Pets"])
+def post_pets_update(request:Request,id:int,name:str,species:str,breed:str,age:int,owner_id:int,db=Depends(get_db)):
     stmt=select(Pets).where(Pets.id==id)
     db_pet = db.execute(stmt).scalar_one_or_none()
-
-    if db_pet:
-        response=templates.TemplateResponse(request,"update.html",{"pet":db_pet})
-        return response
+    if not db_pet:
+        raise HTTPException(status_code=400,detail="Invalid id")
     else:
-        raise HTTPException(status_code=400,detail="id not valid")
-@app.post("/pets/update",tags=["Pets"])
-def post_pets_update(request:Request,id: int = Form(...), name: str = Form(...), species: str = Form(...), breed: str = Form(...), age: int = Form(...), owner_name: str = Form(...), owner_phone: str = Form(...),db=Depends(get_db)):
-    pet = db.scalar(select(Pets).where(Pets.id == id))
-    stmt=select(Owners.id).where(Owners.name==owner_name,Owners.phone==owner_phone)
-    db_owner=db.execute(stmt).scalars().all()
-    if not db_owner:
-        response=RedirectResponse(url="/owner/create",status=303)
-    if pet:
-        pet.name = name
-        pet.species = species
-        pet.breed = breed
-        pet.age = age
-        pet.owner_id=db_owner[0]
+        pet = db.scalar(select(Pets).where(Pets.id == id))
+        stmt=select(Owners.id).where(Owners.name==owner_id)
+        db_owner=db.execute(stmt).scalars().all()
+        if not db_owner:
+            return "Owner does not exist"
+        if pet:
+            pet.name = name
+            pet.species = species
+            pet.breed = breed
+            pet.age = age
+            pet.owner_id=db_owner[0]
 
-    db.commit()
-    db.refresh(pet)
+        db.commit()
+        db.refresh(pet)
 
-    response=RedirectResponse(url="/",status_code=303)
-    return response
+        return "Updated the pet entry"
 
 
 @app.get("/pets/{pet_id}",tags=["Pets"])
 def get_petsid(request:Request,pet_id:int,db=Depends(get_db)):
     stmt=select(Pets).where(Pets.id==pet_id)
     db_pet = db.execute(stmt).scalar_one_or_none()
-    resp_dict={}
-    resp_dict["id"]=db_pet.id
-    resp_dict["name"]=db_pet.name
-    resp_dict["species"]=db_pet.species
-    resp_dict["breed"]=db_pet.breed
-    resp_dict["age"]=db_pet.age
-    resp_dict["owner_id"]=db_pet.owner_id
-    return resp_dict
 
-@app.get("/pets/{pet_id}/create_visits",tags=["Visits"])
-def get_pet_createvisit(request:Request,pet_id:int,db=Depends(get_db)):
-    stmt=select(Pets).where(Pets.id==pet_id)
-    db_pet = db.execute(stmt).scalar_one_or_none()
-
-    if not db_pet:
-        raise HTTPException(status_code=400,detail="No pet with the mentioned id")
-    elif db_pet:
-        response=templates.TemplateResponse(request,"create_visit.html",{"pet_id":pet_id})
-        return response
+    if db_pet:
+        resp_dict={}
+        resp_dict["id"]=db_pet.id
+        resp_dict["name"]=db_pet.name
+        resp_dict["species"]=db_pet.species
+        resp_dict["breed"]=db_pet.breed
+        resp_dict["age"]=db_pet.age
+        resp_dict["owner_id"]=db_pet.owner_id
+        return resp_dict
+    else:
+        raise HTTPException(status_code=400,detail="invalid id")
     
-@app.post("/pets/{pet_id}/create_visits",tags=["Visits"])
-def post_pet_createvisit(request:Request,pet_id:int,reason: str = Form(...),notes: str = Form(...),visit_date: date = Form(...),db=Depends(get_db)):
-
-    visit=Visit(pet_id,reason,notes,visit_date)
-    try:
-      validated_visit=Valid_Visits.model_validate(visit)
-    except Exception as e:
-        raise HTTPException(status_code=400,detail=str(e))
-
-    db_visit=Visits(pet_id=validated_visit.pet_id,reason=validated_visit.reason,notes=validated_visit.notes,visit_date=validated_visit.visit_date,created_at=datetime.now(UTC))
-    db.add(db_visit)
-    db.commit()
-
-    response=RedirectResponse(url="/pets/{pet_id}/visits",status_code=303)
-    return response
-
 @app.get("/pets/{pet_id}/visits",tags=["Visits"])
 def get_pets_create(pet_id:int,db=Depends(get_db)):
     stmt=select(Visits.pet_id,Visits.reason,Visits.notes,Visits.visit_date).where(Visits.pet_id==pet_id)
@@ -236,7 +216,52 @@ def get_pets_create(pet_id:int,db=Depends(get_db)):
         resp_list.append(resp_dict)
 
     return resp_list
+    
+@app.post("/pets/{pet_id}/visits",tags=["Visits"])
+def post_pet_visit(request:Request,pet_id:int,reason: str,notes: str,visit_date: date,db=Depends(get_db)):
+    stmt=select(Pets).where(Pets.id==pet_id)
+    db_pet = db.execute(stmt).scalar_one_or_none()
 
+    if not db_pet:
+        raise HTTPException(status_code=400,detail="No pet with the mentioned id")
+    elif db_pet:
+        visit=Visit(pet_id,reason,notes,visit_date)
+        try:
+           validated_visit=Valid_Visits.model_validate(visit)
+        except Exception as e:
+            raise HTTPException(status_code=400,detail=str(e))
+
+        db_visit=Visits(pet_id=validated_visit.pet_id,reason=validated_visit.reason,notes=validated_visit.notes,visit_date=validated_visit.visit_date,created_at=datetime.now(UTC))
+        db.add(db_visit)
+        db.commit()
+
+        return "Created the visit for pet"
+
+@app.put("/pets/{pet_id}/visits",tags=["Visits"])
+def put_pet_visits(pet_id:int,reason:str|None,notes:str|None,visit_date:date|None=None,db=Depends(get_db)):
+    stmt=select(Pets).where(Pets.id==pet_id)
+    db_pet = db.execute(stmt).scalar_one_or_none()
+
+    if not db_pet:
+        raise HTTPException(status_code=400,detail="No pet with the mentioned id")
+    elif db_pet:
+        visit=Visit(pet_id,reason,notes,visit_date)
+        try:
+           validated_visit=Valid_Visits.model_validate(visit)
+        except Exception as e:
+            raise HTTPException(status_code=400,detail=str(e))
+        if reason:
+         db_pet.reason=validated_visit.reason
+        if notes:
+         db_pet.notes=validated_visit.notes
+        if visit_date:
+         db_pet.visit_date=validated_visit.visit_date
+        
+        db.commit()
+        db.refresh(db_pet)
+
+
+        
 
 
 

@@ -1,6 +1,6 @@
 from Database.database import Base
 
-from sqlalchemy import Integer, String, ForeignKey, TIMESTAMP, DateTime, Date
+from sqlalchemy import Integer, String, ForeignKey, TIMESTAMP, DateTime, Date,Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime, date
 
@@ -14,7 +14,9 @@ class Owners(Base):
     phone: Mapped[str] = mapped_column(String, nullable=False)
     email: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-
+    updated_at:Mapped[datetime]=mapped_column(DateTime,nullable=True)
+    is_deleted:Mapped[bool]=mapped_column(Boolean,default=False)
+    deleted_at:Mapped[datetime]=mapped_column(DateTime,nullable=True)
     pets = relationship("Pets", back_populates="owners",cascade="all, delete-orphan")
 
 
@@ -31,6 +33,9 @@ class Pets(Base):
     owner_id: Mapped[int] = mapped_column(Integer,ForeignKey("Owners.id"),nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False)
+    updated_at:Mapped[datetime]=mapped_column(DateTime,nullable=True)
+    is_deleted:Mapped[bool]=mapped_column(Boolean,default=False)
+    deleted_at:Mapped[datetime]=mapped_column(DateTime,nullable=True)
 
     owners = relationship("Owners",back_populates="pets")
 
@@ -49,5 +54,8 @@ class Visits(Base):
     notes: Mapped[str] = mapped_column(String, nullable=False)
     visit_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     created_at: Mapped[date] = mapped_column(Date, nullable=False)
+    updated_at:Mapped[datetime]=mapped_column(DateTime,nullable=True)
+    is_deleted:Mapped[bool]=mapped_column(Boolean,default=False)
+    deleted_at:Mapped[datetime]=mapped_column(DateTime,nullable=True)
 
     pet = relationship("Pets",back_populates="visits")

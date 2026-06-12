@@ -5,12 +5,15 @@ from Database.database import Base,engine,get_db
 from Database.models import Pets,Visits,Owners
 from schemas import Valid_Pets,Valid_Visits,Valid_Owners
 
+import logging
+
 from fastapi.templating import Jinja2Templates
 from datetime import datetime,UTC,date
 
 #this creates table for all the models that inherit base
 Base.metadata.create_all(bind=engine)
 
+logging.basicConfig(level=logging.DEBUG,format="%(asctime)s - %(levelname)s - %(message)s")
 app=FastAPI()
 templates=Jinja2Templates(directory="templates")
 
@@ -70,6 +73,7 @@ def post_owner_create(request:Request,name:str,phone:str,email:str,db=Depends(ge
     try:
       valid_owner=Valid_Owners.model_validate(owner)
     except Exception as e:
+        logging.warning("owner id not found")
         raise HTTPException(status_code=400,detail=str(e))
     stmt=select(Owners).where(Owners.name==valid_owner.name,Owners.phone==valid_owner.phone,Owners.email==valid_owner.email)
     db_owner=db.execute(stmt).scalar_one_or_none()
@@ -81,17 +85,48 @@ def post_owner_create(request:Request,name:str,phone:str,email:str,db=Depends(ge
         db_owner=Owners(name=valid_owner.name,phone=valid_owner.phone,email=valid_owner.email,created_at=datetime.now(UTC))
         db.add(db_owner)
         db.commit()
+        logging.info("Created owner entry")
         return "Created owner entry"
+    
+@app.update("/owner/update",tags=["Owners"])
+def update_owner(id:int,name:str|None,phone:str|None,email:str|None,db=Depends(get_db)):
+    stmt=select(Owners).where(Owners.id==id)
+    db_owner=db.execute(stmt).scalar_one_or_none()
+    if db_owner:
+        if name:
+            db_owner.name=name
+        if phone:
+            db_owner.phone=phone
+        if email:
+            db_owner.email=email
+
+        db_owner.updated_at=datetime.now(UTC)
+
+        db.commit()
+        db.refresh(db_owner)
+        logging.info("Updated owner details")
+        return "Updated owner details" 
+    else:
+        logging.warning("Owner id not found")
+        raise HTTPException(status_code=400,detail="owner does not exist")
+
+
 @app.delete("/owner/delete",tags=["Owners"])
 def delete_owner(id:int,db=Depends(get_db)):
     stmt=select(Owners).where(Owners.id==id)
     db_owner=db.execute(stmt).scalar_one_or_none()
 
     if not db_owner:
+        logging.warning("owner id not found")
         raise HTTPException(status_code=400,detail="Owner does not exist")
     else:
-        db.delete(db_owner)
+        db_owner.is_deleted=True
+        db_owner.deleted_at=datetime.now(UTC)
+
         db.commit()
+        db.refresh(db_owner)
+        logging.info("Deleted owner entry")
+
         return "Deleted the owner"
     
 
@@ -121,7 +156,7 @@ def get_pets(species: str | None = None,breed: str | None = None,owner_name: str
     if search:
         filter.append(Pets.name.lower().contains(search))
     
-    stmt=select(Pets).where(filter)
+    stmt=select(Pets).where(*filter)
     db_pets=db.execute(stmt).all()
     print(db_pets)
 
@@ -130,10 +165,12 @@ def post_createpets(request:Request,name:str,species:str,breed:str,age:int,owner
     stmt=select(Owners.id).where(Owners.name==owner_name,Owners.phone==owner_phone)
     db_owner=db.execute(stmt).scalars().all()
     if not db_owner:
+        logging.warning("No entry of the owner")
         raise HTTPException(status_code=400,detail="owner not exisiting")
     else:     
         pet=Pet(name,species,breed,age,db_owner[0])
         try:
+            logging.warning("Entered details in wrong format")
             validated_entry=Valid_Pets.model_validate(pet)
         except Exception as e:
             raise HTTPException(status_code=400,detail=str(e))
@@ -141,7 +178,7 @@ def post_createpets(request:Request,name:str,species:str,breed:str,age:int,owner
         db_pet=Pets(name=validated_entry.name,species=validated_entry.species,breed=validated_entry.breed,age=validated_entry.age,owner_id=validated_entry.owner_id,created_at=datetime.now(UTC))
         db.add(db_pet)
         db.commit()
-
+        logging.info("created a pet entry")
         return "Created the entry"
 
 @app.delete("/pets/delete",tags=["Pets"])
@@ -150,34 +187,45 @@ def delete_pets_delete(request:Request,db=Depends(get_db),id:int=Form(...)):
     pet=db.scalar(stmt)
 
     if pet:
-        db.delete(pet)
+        pet.is_deleted=True
+        pet.deleted_at=datetime.now(UTC)
+
         db.commit()
+        db.refresh(pet)
+        logging.info("Deleted pet entry")
+        return "Deleted the pet entry"
+
     else:
+        logging.warning("pet id not found")
         raise HTTPException(status_code=400,detail="id not found")
     
-    return "Deleted the pet entry"
+
 
 @app.post("/pets/update",tags=["Pets"])
 def post_pets_update(request:Request,id:int,name:str,species:str,breed:str,age:int,owner_id:int,db=Depends(get_db)):
     stmt=select(Pets).where(Pets.id==id)
     db_pet = db.execute(stmt).scalar_one_or_none()
     if not db_pet:
+        logging.warning("pet id not found")
         raise HTTPException(status_code=400,detail="Invalid id")
     else:
         pet = db.scalar(select(Pets).where(Pets.id == id))
         stmt=select(Owners.id).where(Owners.name==owner_id)
         db_owner=db.execute(stmt).scalars().all()
         if not db_owner:
-            return "Owner does not exist"
+            logging.warning("Owner id not found")
+            raise HTTPException(status_code=400,detail="owner id not found")
         if pet:
             pet.name = name
             pet.species = species
             pet.breed = breed
             pet.age = age
             pet.owner_id=db_owner[0]
+            pet.updated_at=datetime.now(UTC)
 
         db.commit()
         db.refresh(pet)
+        logging.info("Updated pet info")
 
         return "Updated the pet entry"
 
@@ -197,6 +245,7 @@ def get_petsid(request:Request,pet_id:int,db=Depends(get_db)):
         resp_dict["owner_id"]=db_pet.owner_id
         return resp_dict
     else:
+        logging.warning("Pet id not found")
         raise HTTPException(status_code=400,detail="invalid id")
     
 @app.get("/pets/{pet_id}/visits",tags=["Visits"])
@@ -223,42 +272,72 @@ def post_pet_visit(request:Request,pet_id:int,reason: str,notes: str,visit_date:
     db_pet = db.execute(stmt).scalar_one_or_none()
 
     if not db_pet:
+        logging.warning("Pet id not found")
         raise HTTPException(status_code=400,detail="No pet with the mentioned id")
     elif db_pet:
         visit=Visit(pet_id,reason,notes,visit_date)
         try:
            validated_visit=Valid_Visits.model_validate(visit)
         except Exception as e:
+            logging.warning("Entered details in wrong format")
             raise HTTPException(status_code=400,detail=str(e))
 
         db_visit=Visits(pet_id=validated_visit.pet_id,reason=validated_visit.reason,notes=validated_visit.notes,visit_date=validated_visit.visit_date,created_at=datetime.now(UTC))
         db.add(db_visit)
         db.commit()
-
+        logging.info("Created a visit for the pet")
         return "Created the visit for pet"
 
 @app.put("/pets/{pet_id}/visits",tags=["Visits"])
 def put_pet_visits(pet_id:int,reason:str|None,notes:str|None,visit_date:date|None=None,db=Depends(get_db)):
-    stmt=select(Pets).where(Pets.id==pet_id)
-    db_pet = db.execute(stmt).scalar_one_or_none()
+    stmt=select(Visits).where(Visits.pet_id==pet_id,Visits.visit_date==visit_date)
+    db_visit = db.execute(stmt).scalar_one_or_none()
 
-    if not db_pet:
-        raise HTTPException(status_code=400,detail="No pet with the mentioned id")
-    elif db_pet:
+    if not db_visit:
+        logging.warning("No visits with given details")
+        raise HTTPException(status_code=400,detail="No visit with mentioned details")
+    elif db_visit:
         visit=Visit(pet_id,reason,notes,visit_date)
         try:
+           logging.warning("Enter details in valid format")
            validated_visit=Valid_Visits.model_validate(visit)
         except Exception as e:
             raise HTTPException(status_code=400,detail=str(e))
         if reason:
-         db_pet.reason=validated_visit.reason
+         db_visit.reason=validated_visit.reason
         if notes:
-         db_pet.notes=validated_visit.notes
+         db_visit.notes=validated_visit.notes
         if visit_date:
-         db_pet.visit_date=validated_visit.visit_date
+         db_visit.visit_date=validated_visit.visit_date
+
+        db_visit.updated_at=datetime.now(UTC)
         
         db.commit()
-        db.refresh(db_pet)
+        db.refresh(db_visit)
+        logging.info("Updated details successfully")
+
+@app.delete("/pets/{pet_id}/visits",tags=["Visits"])
+def delete_pet_visits(pet_id:int,visit_date:date,db=Depends(get_db)):
+    stmt=select(Visits).where(Visits.pet_id==pet_id,Visits.visit_date==visit_date)
+    db_visit=db.execute(stmt).scalar_one_or_none()
+
+    if db_visit:
+        db_visit.is_deleted=True
+        db_visit.deleted_at=datetime.now(UTC)
+
+        db.commit()
+        db.refresh(db_visit)
+        logging.info("Successfully deleted the visit")
+        return "Deleted the visit"
+    else:
+        logging.warning("No visit with given details")
+        raise HTTPException(status_code=400,detail="ID not found")
+    
+    
+
+
+
+
 
 
         

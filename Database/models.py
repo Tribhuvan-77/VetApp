@@ -59,3 +59,4 @@ class Visits(Base):
     deleted_at:Mapped[datetime]=mapped_column(DateTime,nullable=True)
 
     pet = relationship("Pets",back_populates="visits")
+

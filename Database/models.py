@@ -1,4 +1,5 @@
 from Database.database import Base
+from enum import Enum as PyEnum
 from uuid import uuid4
 from sqlalchemy import Integer, String, ForeignKey, TIMESTAMP, DateTime, Date,Boolean,UUID,Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -60,12 +61,13 @@ class Visits(Base):
 
     pet = relationship("Pets",back_populates="visits")
 
-class UserRole(Enum):
+class UserRole(PyEnum):
     ADMIN="admin"
     VET="vet"
     RECEPTIONIST="receptionist"
 
 class Users(Base):
+    __tablename__="Users"
     id:Mapped[UUID]=mapped_column(UUID,primary_key=True,default=uuid4)
     name:Mapped[str]=mapped_column(String,nullable=False)
     email:Mapped[str]=mapped_column(String,unique=True,nullable=False,index=True)

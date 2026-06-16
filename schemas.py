@@ -1,6 +1,6 @@
 from pydantic import BaseModel,ConfigDict,Field,EmailStr
 from datetime import date
-
+from Database.models import UserRole
 from datetime import datetime
 
 
@@ -25,3 +25,16 @@ class Valid_Visits(BaseModel):
     reason: str = Field(min_length=1, max_length=50)
     notes: str = Field(min_length=1, max_length=500)
     visit_date: date
+
+class Valid_Users(BaseModel):
+    model_config=ConfigDict(from_attributes=True)
+
+    name:str=Field(min_length=1,max_length=15)
+    email:EmailStr
+    password_hash:str=Field(min_length=10)
+    role:UserRole
+    created_at:datetime
+    updated_at:datetime
+
+
+

@@ -1,6 +1,6 @@
 from Database.database import Base
-
-from sqlalchemy import Integer, String, ForeignKey, TIMESTAMP, DateTime, Date,Boolean
+from uuid import uuid4
+from sqlalchemy import Integer, String, ForeignKey, TIMESTAMP, DateTime, Date,Boolean,UUID,Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime, date
 
@@ -60,3 +60,18 @@ class Visits(Base):
 
     pet = relationship("Pets",back_populates="visits")
 
+class UserRole(Enum):
+    ADMIN="admin"
+    VET="vet"
+    RECEPTIONIST="receptionist"
+
+class Users(Base):
+    id:Mapped[UUID]=mapped_column(UUID,primary_key=True,default=uuid4)
+    name:Mapped[str]=mapped_column(String,nullable=False)
+    email:Mapped[str]=mapped_column(String,unique=True,nullable=False,index=True)
+    password_hash:Mapped[str]=mapped_column(String,nullable=False)
+    role:Mapped[UserRole]=mapped_column(Enum(UserRole),nullable=False)
+    created_at:Mapped[datetime]=mapped_column(DateTime,nullable=True)
+    updated_at:Mapped[datetime]=mapped_column(DateTime,nullable=True)
+
+    

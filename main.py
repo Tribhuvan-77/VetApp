@@ -57,9 +57,14 @@ class Owner:
 def get_home(request:Request):
     return {"Welcome Home"}
 
+#for paginaton->we have page number->tells which page to be shown and page size-> no of records in each page
+#offset->(page-1)*page_size --> here we are doing page-1 as offset starts frm 0
+
 @app.get("/owner",tags=["Owners"])
-def get_owner(db=Depends(get_db)):
-    stmt=select(Owners.id,Owners.name,Owners.is_deleted)
+def get_owner(page_number:int,db=Depends(get_db)):
+    page_size=10
+    offset=(page_number-1)*page_size
+    stmt=select(Owners.id,Owners.name,Owners.is_deleted).offset(offset).limit(page_size)
     db_owner=db.execute(stmt).all()
     resp_dict={}
     for i in db_owner:
@@ -69,7 +74,7 @@ def get_owner(db=Depends(get_db)):
 
 
 @app.post("/owner/create",tags=["Owners"])
-def post_owner_create(request:Request,name:str,phone:str,email:str,db=Depends(get_db)):
+def post_owner_create(name:str,phone:str,email:str,db=Depends(get_db)):
     owner=Owner(name,phone,email)
     try:
       valid_owner=Valid_Owners.model_validate(owner)
@@ -132,8 +137,10 @@ def delete_owner(id:int,db=Depends(get_db)):
     
 
 @app.get("/pets",tags=["Pets"])
-def get_pets(db=Depends(get_db)):
-    stmt=select(Pets.id,Pets.name)
+def get_pets(page_number:int,db=Depends(get_db)):
+    page_size=10
+    offset=(page_number-1)*page_size
+    stmt=select(Pets.id,Pets.name).offset(offset).limit(page_number)
     db_pets=db.execute(stmt).all()
 
     resp_dict={}
@@ -260,8 +267,10 @@ def get_petsid(request:Request,pet_id:int,db=Depends(get_db)):
         raise HTTPException(status_code=400,detail="invalid id")
     
 @app.get("/pets/{pet_id}/visits",tags=["Visits"])
-def get_pets_create(pet_id:int,db=Depends(get_db)):
-    stmt=select(Visits.pet_id,Visits.reason,Visits.notes,Visits.visit_date).where(Visits.pet_id==pet_id)
+def get_pets_create(page_number:int,pet_id:int,db=Depends(get_db)):
+    page_size=10
+    offset=(page_number-1)*page_size
+    stmt=select(Visits.pet_id,Visits.reason,Visits.notes,Visits.visit_date).where(Visits.pet_id==pet_id).offset(offset).limit(page_number)
     db_visits = db.execute(stmt).all()
 
     resp_list = []

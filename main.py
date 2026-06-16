@@ -4,7 +4,9 @@ from sqlalchemy import select
 from Database.database import Base,engine,get_db
 from Database.models import Pets,Visits,Owners,Users
 from schemas import Valid_Pets,Valid_Visits,Valid_Owners,Valid_Users
+from Database.database import Base
 
+print(Base.metadata.tables.keys())
 import logging
 
 from fastapi.templating import Jinja2Templates

@@ -9,6 +9,7 @@ import logging
 
 from fastapi.templating import Jinja2Templates
 from datetime import datetime,UTC,date
+import time
 
 #this creates table for all the models that inherit base
 Base.metadata.create_all(bind=engine)
@@ -51,6 +52,25 @@ class Owner:
         self.name=name
         self.phone=phone
         self.email=email
+
+#async ->tells the code to do other works while it runs in backgroud (if the func needs to wait for something)
+#await ->pause here until the result is ready
+#middleware -> code the sits between a req and code that handles the req
+#here -> middleware --> request --> middleware
+    
+@app.middleware("http")
+async def log_request(request:Request,call_next):
+
+    start_time=time.time()
+
+    response=await call_next(request)
+
+    resp_time=time.time()-start_time
+
+    print(f"Method:{request.method} Path:{request.url.path} response_time:{resp_time} status_code:{response.status_code}")
+
+    return response
+
          
 
 @app.get("/")

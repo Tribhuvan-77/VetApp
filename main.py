@@ -2,8 +2,8 @@ from fastapi import FastAPI,Request,Depends,Form,HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from Database.database import Base,engine,get_db
-from Database.models import Pets,Visits,Owners
-from schemas import Valid_Pets,Valid_Visits,Valid_Owners
+from Database.models import Pets,Visits,Owners,Users
+from schemas import Valid_Pets,Valid_Visits,Valid_Owners,Valid_Users
 
 import logging
 

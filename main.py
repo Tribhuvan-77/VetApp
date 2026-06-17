@@ -4,7 +4,12 @@ from sqlalchemy import select
 from Database.database import Base,engine,get_db
 from Database.models import Pets,Visits,Owners,Users
 from schemas import Valid_Pets,Valid_Visits,Valid_Owners,Valid_Users
+from Database.database import Base
+from passlib.context import CryptContext
 
+pwd_context=CryptContext(schemes=["bcrypt"],deprecated="auto")
+
+print(Base.metadata.tables.keys())
 import logging
 
 from fastapi.templating import Jinja2Templates
@@ -52,6 +57,16 @@ class Owner:
         self.name=name
         self.phone=phone
         self.email=email
+
+class User:
+    name:str
+    email:str
+    password_hash:str
+    role:str
+
+    def __init__(self,name,email,password_hash,role):
+        self.name=name
+        
 
 #async ->tells the code to do other works while it runs in backgroud (if the func needs to wait for something)
 #await ->pause here until the result is ready
@@ -372,8 +387,35 @@ def delete_pet_visits(pet_id:int,visit_date:date,db=Depends(get_db)):
         logging.warning("No visit with given details")
         raise HTTPException(status_code=400,detail="no visit with given details")
     
+@app.post("/auth/users",tags=["Users"])
+def post_users(validated_user:Valid_Users,db=Depends(get_db)):
+    logging.info(validated_user.password_hash)
+    logging.info(len(validated_user.password_hash))
+    logging.info(type(validated_user.password_hash.encode()))
+    try:
+     hashed_password=pwd_context.hash(validated_user.password_hash)
+    except Exception as e:
+        return HTTPException(status_code=400,detail=str(e))
+    
+    db_user=Users(name=validated_user.name,email=validated_user.email,password_hash=hashed_password,role=validated_user.role.value.upper(),created_at=datetime.now(UTC))
+    logging.info(db_user.role)
+    try:
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+    except Exception as e:
+        db.rollback()
+        print(type(e))
+        print(e)
+        raise HTTPException(status_code=400,detail=str(e))
+
+    logging.info("Created user entry")
+    return "Created User entry"
+    
     
 
+    
+    
 
 
 

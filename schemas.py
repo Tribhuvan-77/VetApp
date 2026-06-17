@@ -33,8 +33,7 @@ class Valid_Users(BaseModel):
     email:EmailStr
     password_hash:str=Field(min_length=10)
     role:UserRole
-    created_at:datetime
-    updated_at:datetime
+
 
 
 

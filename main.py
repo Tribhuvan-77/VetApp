@@ -423,7 +423,7 @@ def post_user(user_login:Valid_UserLogin,db=Depends(get_db)):
     if not pwd_context.verify(user_login.password_hash,db_user.password_hash):
         raise HTTPException(status_code=400,detail="Incorrect password")
     
-    token=create_token(db_user.email)
+    token=create_token(str(db_user.id),db_user.email,db_user.role.value)
     response=Response()
     response.set_cookie(key="login_token",value=token,httponly=True)
     

@@ -5,9 +5,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def create_token(email:str):
+def create_token(id:str,email:str,role:str):
     payload={
+        "id":id,
         "email":email,
+        "role":role,
         "exp":datetime.now(UTC) + timedelta(minutes=30)
     }
 

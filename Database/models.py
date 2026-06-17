@@ -62,9 +62,9 @@ class Visits(Base):
     pet = relationship("Pets",back_populates="visits")
 
 class UserRole(PyEnum):
-    ADMIN="admin"
-    VET="vet"
-    RECEPTIONIST="receptionist"
+    ADMIN="ADMIN"
+    VET="VET"
+    RECEPTIONIST="RECEPTIONIST"
 
 class Users(Base):
     __tablename__="Users"
@@ -73,7 +73,7 @@ class Users(Base):
     email:Mapped[str]=mapped_column(String,unique=True,nullable=False,index=True)
     password_hash:Mapped[str]=mapped_column(String,nullable=False)
     role:Mapped[UserRole]=mapped_column(Enum(UserRole),nullable=False)
-    created_at:Mapped[datetime]=mapped_column(DateTime,nullable=True)
+    created_at:Mapped[datetime]=mapped_column(DateTime,nullable=False)
     updated_at:Mapped[datetime]=mapped_column(DateTime,nullable=True)
 
     

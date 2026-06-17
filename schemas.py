@@ -34,6 +34,13 @@ class Valid_Users(BaseModel):
     password_hash:str=Field(min_length=10)
     role:UserRole
 
+class Valid_UserLogin(BaseModel):
+    model_config=ConfigDict(from_attributes=True)
+
+    email:EmailStr
+    password_hash:str=Field(min_length=10)
+    
+
 
 
 

@@ -1,11 +1,12 @@
-from fastapi import FastAPI,Request,Depends,Form,HTTPException
+from fastapi import FastAPI,Request,Depends,Form,HTTPException,Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from Database.database import Base,engine,get_db
 from Database.models import Pets,Visits,Owners,Users
-from schemas import Valid_Pets,Valid_Visits,Valid_Owners,Valid_Users
+from schemas import Valid_Pets,Valid_Visits,Valid_Owners,Valid_Users,Valid_UserLogin
 from Database.database import Base
 from passlib.context import CryptContext
+from auth import create_token
 
 pwd_context=CryptContext(schemes=["bcrypt"],deprecated="auto")
 
@@ -387,7 +388,7 @@ def delete_pet_visits(pet_id:int,visit_date:date,db=Depends(get_db)):
         logging.warning("No visit with given details")
         raise HTTPException(status_code=400,detail="no visit with given details")
     
-@app.post("/auth/users",tags=["Users"])
+@app.post("/auth/register",tags=["Users"])
 def post_users(validated_user:Valid_Users,db=Depends(get_db)):
     logging.info(validated_user.password_hash)
     logging.info(len(validated_user.password_hash))
@@ -411,6 +412,27 @@ def post_users(validated_user:Valid_Users,db=Depends(get_db)):
 
     logging.info("Created user entry")
     return "Created User entry"
+
+@app.post("/auth/login",tags=["User"])
+def post_user(user_login:Valid_UserLogin,db=Depends(get_db)):
+    stmt=select(Users).where(Users.email==user_login.email)
+    db_user=db.execute(stmt).scalar_one_or_none()
+
+    if not db_user:
+        raise HTTPException(status_code=400,detail="User not existing")
+    if not pwd_context.verify(user_login.password_hash,db_user.password_hash):
+        raise HTTPException(status_code=400,detail="Incorrect password")
+    
+    token=create_token(db_user.email)
+    response=Response()
+    response.set_cookie(key="login_token",value=token,httponly=True)
+    
+    logging.info("Login successful")
+    return "Login successfull"
+    
+    
+    
+
     
     
 

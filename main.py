@@ -1,4 +1,4 @@
-from fastapi import FastAPI,Request,Depends,Form,HTTPException,Response
+from fastapi import FastAPI,Request,Depends,Form,HTTPException,Response,Cookie
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from Database.database import Base,engine,get_db
@@ -6,7 +6,7 @@ from Database.models import Pets,Visits,Owners,Users
 from schemas import Valid_Pets,Valid_Visits,Valid_Owners,Valid_Users,Valid_UserLogin
 from Database.database import Base
 from passlib.context import CryptContext
-from auth import create_token
+from auth import create_token,decode_token
 
 pwd_context=CryptContext(schemes=["bcrypt"],deprecated="auto")
 
@@ -206,82 +206,94 @@ def get_pets(species: str | None = None,breed: str | None = None,owner_name: str
 
 @app.post("/pets/create",tags=["Pets"])
 def post_createpets(request:Request,name:str,species:str,breed:str,age:int,owner_name:str,owner_phone:str,db=Depends(get_db)):
-    stmt=select(Owners.id).where(Owners.name==owner_name,Owners.phone==owner_phone)
-    db_owner=db.execute(stmt).scalars().all()
-    if not db_owner:
-        logging.warning("No entry of the owner")
-        raise HTTPException(status_code=400,detail="owner not exisiting")
-    else:     
-        pet=Pet(name,species,breed,age,db_owner[0])
-        try:
-            logging.warning("Entered details in wrong format")
-            validated_entry=Valid_Pets.model_validate(pet)
-        except Exception as e:
-            raise HTTPException(status_code=400,detail=str(e))
-        
-        db_pet=Pets(name=validated_entry.name,species=validated_entry.species,breed=validated_entry.breed,age=validated_entry.age,owner_id=validated_entry.owner_id,created_at=datetime.now(UTC))
-        db.add(db_pet)
-        db.commit()
-        logging.info("created a pet entry")
-        return "Created the entry"
+    login_token=request.cookies.get("login_token")
+    if login_token is None:
+        raise HTTPException(status_code=400,detail="Missing token")
+    else:
+        stmt=select(Owners.id).where(Owners.name==owner_name,Owners.phone==owner_phone)
+        db_owner=db.execute(stmt).scalars().all()
+        if not db_owner:
+            logging.warning("No entry of the owner")
+            raise HTTPException(status_code=400,detail="owner not exisiting")
+        else:     
+            pet=Pet(name,species,breed,age,db_owner[0])
+            try:
+                logging.warning("Entered details in wrong format")
+                validated_entry=Valid_Pets.model_validate(pet)
+            except Exception as e:
+                raise HTTPException(status_code=400,detail=str(e))
+            
+            db_pet=Pets(name=validated_entry.name,species=validated_entry.species,breed=validated_entry.breed,age=validated_entry.age,owner_id=validated_entry.owner_id,created_at=datetime.now(UTC))
+            db.add(db_pet)
+            db.commit()
+            logging.info("created a pet entry")
+            return "Created the entry"
 
 @app.delete("/pets/delete",tags=["Pets"])
-def delete_pets_delete(db=Depends(get_db),id:int=Form(...)):
-    stmt=select(Pets).where(Pets.id==id)
-    pet=db.scalar(stmt)
-
-    if pet:
-        pet.is_deleted=True
-        pet.deleted_at=datetime.now(UTC)
-
-        db.commit()
-        db.refresh(pet)
-        logging.info("Deleted pet entry")
-        return "Deleted the pet entry"
-
+def delete_pets_delete(request:Request,db=Depends(get_db),id:int=Form(...)):
+    login_token=request.cookies.get("login_token")
+    if login_token is None:
+        raise HTTPException(status_code=400,detail="Missing token")
     else:
-        logging.warning("pet id not found")
-        raise HTTPException(status_code=400,detail="id not found")
+        stmt=select(Pets).where(Pets.id==id)
+        pet=db.scalar(stmt)
+
+        if pet:
+            pet.is_deleted=True
+            pet.deleted_at=datetime.now(UTC)
+
+            db.commit()
+            db.refresh(pet)
+            logging.info("Deleted pet entry")
+            return "Deleted the pet entry"
+
+        else:
+            logging.warning("pet id not found")
+            raise HTTPException(status_code=400,detail="id not found")
     
 
 
 @app.put("/pets/update",tags=["Pets"])
-def put_pets(id:int,name:str|None=None,species:str|None=None,breed:str|None=None,age:int|None=None,owner_id:int|None=None,db=Depends(get_db)):
-    stmt=select(Pets).where(Pets.id==id)
-    db_pet = db.execute(stmt).scalar_one_or_none()
-    if not db_pet:
-        logging.warning("pet id not found")
-        raise HTTPException(status_code=400,detail="Invalid id")
+def put_pets(request:Request,id:int,name:str|None=None,species:str|None=None,breed:str|None=None,age:int|None=None,owner_id:int|None=None,db=Depends(get_db)):
+    login_token=request.cookies.get("login_token")
+    if login_token is None:
+        raise HTTPException(status_code=400,detail="Missing token")
     else:
-        pet = db.scalar(select(Pets).where(Pets.id == id))
-        if pet:
-            if name:
-               pet.name = name
-            if species:
-               pet.species = species
-            if breed:
-             pet.breed = breed
-            if age:
-             pet.age = age
-
-            if owner_id:
-             stmt=select(Owners.id).where(Owners.name==owner_id)
-             db_owner=db.execute(stmt).scalars().all()
-             if not db_owner:
-                logging.warning("Owner id not found")
-                raise HTTPException(status_code=400,detail="owner id not found")
-             else:
-              pet.owner_id=db_owner[0]
-              pet.updated_at=datetime.now(UTC)
-        else:
+        stmt=select(Pets).where(Pets.id==id)
+        db_pet = db.execute(stmt).scalar_one_or_none()
+        if not db_pet:
             logging.warning("pet id not found")
-            raise HTTPException(status_code=400,detail="pet id not found")
+            raise HTTPException(status_code=400,detail="Invalid id")
+        else:
+            pet = db.scalar(select(Pets).where(Pets.id == id))
+            if pet:
+                if name:
+                 pet.name = name
+                if species:
+                 pet.species = species
+                if breed:
+                 pet.breed = breed
+                if age:
+                 pet.age = age
 
-        db.commit()
-        db.refresh(pet)
-        logging.info("Updated pet info")
+                if owner_id:
+                 stmt=select(Owners.id).where(Owners.name==owner_id)
+                db_owner=db.execute(stmt).scalars().all()
+                if not db_owner:
+                    logging.warning("Owner id not found")
+                    raise HTTPException(status_code=400,detail="owner id not found")
+                else:
+                 pet.owner_id=db_owner[0]
+                 pet.updated_at=datetime.now(UTC)
+            else:
+                logging.warning("pet id not found")
+                raise HTTPException(status_code=400,detail="pet id not found")
 
-        return "Updated the pet entry"
+            db.commit()
+            db.refresh(pet)
+            logging.info("Updated pet info")
+
+            return "Updated the pet entry"
 
 
 @app.get("/pets/{pet_id}",tags=["Pets"])
@@ -324,69 +336,79 @@ def get_pets_create(page_number:int,pet_id:int,db=Depends(get_db)):
     
 @app.post("/pets/{pet_id}/visits",tags=["Visits"])
 def post_pet_visit(request:Request,pet_id:int,reason: str,notes: str,visit_date: date,db=Depends(get_db)):
-    stmt=select(Pets).where(Pets.id==pet_id)
-    db_pet = db.execute(stmt).scalar_one_or_none()
+    login_token=request.cookies.get("login_token")
+    if login_token is None:
+        raise HTTPException(status_code=400,detail="Missing token")
+    else:
+        stmt=select(Pets).where(Pets.id==pet_id)
+        db_pet = db.execute(stmt).scalar_one_or_none()
 
-    if not db_pet:
-        logging.warning("Pet id not found")
-        raise HTTPException(status_code=400,detail="No pet with the mentioned id")
-    elif db_pet:
-        visit=Visit(pet_id,reason,notes,visit_date)
-        try:
-           validated_visit=Valid_Visits.model_validate(visit)
-        except Exception as e:
-            logging.warning("Entered details in wrong format")
-            raise HTTPException(status_code=400,detail=str(e))
+        if not db_pet:
+            logging.warning("Pet id not found")
+            raise HTTPException(status_code=400,detail="No pet with the mentioned id")
+        elif db_pet:
+            visit=Visit(pet_id,reason,notes,visit_date)
+            try:
+               validated_visit=Valid_Visits.model_validate(visit)
+            except Exception as e:
+                logging.warning("Entered details in wrong format")
+                raise HTTPException(status_code=400,detail=str(e))
 
-        db_visit=Visits(pet_id=validated_visit.pet_id,reason=validated_visit.reason,notes=validated_visit.notes,visit_date=validated_visit.visit_date,created_at=datetime.now(UTC))
-        db.add(db_visit)
-        db.commit()
-        logging.info("Created a visit for the pet")
-        return "Created the visit for pet"
+            db_visit=Visits(pet_id=validated_visit.pet_id,reason=validated_visit.reason,notes=validated_visit.notes,visit_date=validated_visit.visit_date,created_at=datetime.now(UTC))
+            db.add(db_visit)
+            db.commit()
+            logging.info("Created a visit for the pet")
+            return "Created the visit for pet"
 
 @app.put("/pets/{pet_id}/visits",tags=["Visits"])
-def put_pet_visits(pet_id:int,visit_date:date,reason:str|None=None,notes:str|None=None,db=Depends(get_db)):
-    stmt=select(Visits).where(Visits.pet_id==pet_id,Visits.visit_date==visit_date)
-    db_visit = db.execute(stmt).scalar_one_or_none()
+def put_pet_visits(request:Request,pet_id:int,visit_date:date,reason:str|None=None,notes:str|None=None,db=Depends(get_db)):
+    login_token=request.cookies.get("login_token")
+    if login_token is None:
+        raise HTTPException(status_code=400,detail="Missing token")
+    else:
+        stmt=select(Visits).where(Visits.pet_id==pet_id,Visits.visit_date==visit_date)
+        db_visit = db.execute(stmt).scalar_one_or_none()
 
-    if not db_visit:
-        logging.warning("No visits with given details")
-        raise HTTPException(status_code=400,detail="No visit with mentioned details")
-    elif db_visit:
-        visit=Visit(pet_id,reason,notes,visit_date)
-        try:
-           
-           validated_visit=Valid_Visits.model_validate(visit)
-        except Exception as e:
-            logging.warning("Enter details in valid format")
-            raise HTTPException(status_code=400,detail=str(e))
-        if reason:
-         db_visit.reason=validated_visit.reason
-        if notes:
-         db_visit.notes=validated_visit.notes
+        if not db_visit:
+            logging.warning("No visits with given details")
+            raise HTTPException(status_code=400,detail="No visit with mentioned details")
+        elif db_visit:
+            visit=Visit(pet_id,reason,notes,visit_date)
+            try:
+             validated_visit=Valid_Visits.model_validate(visit)
+            except Exception as e:
+                logging.warning("Enter details in valid format")
+                raise HTTPException(status_code=400,detail=str(e))
+            if reason:
+             db_visit.reason=validated_visit.reason
+            if notes:
+             db_visit.notes=validated_visit.notes
 
-        db_visit.updated_at=datetime.now(UTC)
-        
-        db.commit()
-        db.refresh(db_visit)
-        logging.info("Updated details successfully")
+            db_visit.updated_at=datetime.now(UTC)
+            
+            db.commit()
+            db.refresh(db_visit)
+            logging.info("Updated details successfully")
 
 @app.delete("/pets/{pet_id}/visits",tags=["Visits"])
-def delete_pet_visits(pet_id:int,visit_date:date,db=Depends(get_db)):
-    stmt=select(Visits).where(Visits.pet_id==pet_id,Visits.visit_date==visit_date)
-    db_visit=db.execute(stmt).scalar_one_or_none()
-
-    if db_visit:
-        db_visit.is_deleted=True
-        db_visit.deleted_at=datetime.now(UTC)
-
-        db.commit()
-        db.refresh(db_visit)
-        logging.info("Successfully deleted the visit")
-        return "Deleted the visit"
+def delete_pet_visits(request:Request,pet_id:int,visit_date:date,db=Depends(get_db)):
+    login_token=request.cookies.get("login_token")
+    if login_token is None:
+        raise HTTPException(status_code=400,detail="Missing token")
     else:
-        logging.warning("No visit with given details")
-        raise HTTPException(status_code=400,detail="no visit with given details")
+        stmt=select(Visits).where(Visits.pet_id==pet_id,Visits.visit_date==visit_date)
+        db_visit=db.execute(stmt).scalar_one_or_none()
+        if db_visit:
+            db_visit.is_deleted=True
+            db_visit.deleted_at=datetime.now(UTC)
+
+            db.commit()
+            db.refresh(db_visit)
+            logging.info("Successfully deleted the visit")
+            return "Deleted the visit"
+        else:
+            logging.warning("No visit with given details")
+            raise HTTPException(status_code=400,detail="no visit with given details")
     
 @app.post("/auth/register",tags=["Users"])
 def post_users(validated_user:Valid_Users,db=Depends(get_db)):
@@ -413,8 +435,8 @@ def post_users(validated_user:Valid_Users,db=Depends(get_db)):
     logging.info("Created user entry")
     return "Created User entry"
 
-@app.post("/auth/login",tags=["User"])
-def post_user(user_login:Valid_UserLogin,db=Depends(get_db)):
+@app.post("/auth/login",tags=["Users"])
+def post_user_login(user_login:Valid_UserLogin,db=Depends(get_db)):
     stmt=select(Users).where(Users.email==user_login.email)
     db_user=db.execute(stmt).scalar_one_or_none()
 
@@ -428,7 +450,19 @@ def post_user(user_login:Valid_UserLogin,db=Depends(get_db)):
     response.set_cookie(key="login_token",value=token,httponly=True)
     
     logging.info("Login successful")
-    return "Login successfull"
+    return response
+
+#when we are writing Cookie(None)-> it means we are telling fastapi that the parameter comes from a cookie-> by setting it to Cookie() obj
+@app.get("/auth/user-context",tags=["Users"])
+def get_user_context(request:Request):
+    login_token=request.cookies.get("login_token")
+    if login_token is None:
+        raise HTTPException(status_code=400,detail="Missing token")
+    
+    details=decode_token(login_token)
+    
+    logging.info("Successfully returned details")
+    return details
     
     
     

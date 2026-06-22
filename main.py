@@ -219,6 +219,10 @@ def post_createpets(request:Request,name:str,species:str,breed:str,age:int,owner
         logging.info("authentication failed")
         raise HTTPException(status_code=401,detail={"success":"false","Reason":"Authentication error"})
     else:
+        try:
+          decode_token(login_token)
+        except Exception as e:
+           raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
         stmt=select(Owners.id).where(Owners.name==owner_name,Owners.phone==owner_phone)
         db_owner=db.execute(stmt).scalars().all()
         if not db_owner:
@@ -245,6 +249,10 @@ def delete_pets_delete(request:Request,db=Depends(get_db),id:int=Form(...)):
         logging.info("authentication failed")
         raise HTTPException(status_code=401,detail={"success":"false","Reason":"Authentication error"})
     else:
+        try:
+          decode_token(login_token)
+        except Exception as e:
+           raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
         stmt=select(Pets).where(Pets.id==id)
         pet=db.scalar(stmt)
 
@@ -270,6 +278,10 @@ def put_pets(request:Request,id:int,name:str|None=None,species:str|None=None,bre
         logging.info("authentication failed")
         raise HTTPException(status_code=401,detail={"success":"false","Reason":"Authentication error"})
     else:
+        try:
+          decode_token(login_token)
+        except Exception as e:
+           raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
         stmt=select(Pets).where(Pets.id==id)
         db_pet = db.execute(stmt).scalar_one_or_none()
         if not db_pet:
@@ -352,6 +364,10 @@ def post_pet_visit(request:Request,pet_id:int,reason: str,notes: str,visit_date:
         logging.info("authentication failed")
         raise HTTPException(status_code=401,detail={"success":"false","Reason":"Authentication error"})
     else:
+        try:
+          decode_token(login_token)
+        except Exception as e:
+           raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
         stmt=select(Pets).where(Pets.id==pet_id)
         db_pet = db.execute(stmt).scalar_one_or_none()
 
@@ -379,6 +395,10 @@ def put_pet_visits(request:Request,pet_id:int,visit_date:date,reason:str|None=No
         logging.info("authentication failed")
         raise HTTPException(status_code=401,detail={"success":"false","Reason":"Authentication error"})
     else:
+        try:
+          decode_token(login_token)
+        except Exception as e:
+           raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
         stmt=select(Visits).where(Visits.pet_id==pet_id,Visits.visit_date==visit_date)
         db_visit = db.execute(stmt).scalar_one_or_none()
 
@@ -409,6 +429,10 @@ def delete_pet_visits(request:Request,pet_id:int,visit_date:date,db=Depends(get_
     if login_token is None:
         raise HTTPException(status_code=401,detail={"success":"false","Reason":"Authentication error"})
     else:
+        try:
+          decode_token(login_token)
+        except Exception as e:
+           raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
         stmt=select(Visits).where(Visits.pet_id==pet_id,Visits.visit_date==visit_date)
         db_visit=db.execute(stmt).scalar_one_or_none()
         if db_visit:
@@ -472,8 +496,10 @@ def get_user_context(request:Request):
     if login_token is None:
         logging.info("authentication failed")
         raise HTTPException(status_code=404,detail={"success":"false","Reason":"Entry not found"})
-    
-    details=decode_token(login_token)
+    try:
+     details=decode_token(login_token)
+    except Exception as e:
+        raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
     
     logging.info("Successfully returned details")
     return details

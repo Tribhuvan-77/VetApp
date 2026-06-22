@@ -67,6 +67,15 @@ class User:
 
     def __init__(self,name,email,password_hash,role):
         self.name=name
+
+@app.on_event("startup")
+async def on_startup():
+    logging.info("Application started")
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    logging.info("Application is closesd")
+   
         
 
 #async ->tells the code to do other works while it runs in backgroud (if the func needs to wait for something)
@@ -208,8 +217,13 @@ def get_pets(species: str | None = None,breed: str | None = None,owner_name: str
 def post_createpets(request:Request,name:str,species:str,breed:str,age:int,owner_name:str,owner_phone:str,db=Depends(get_db)):
     login_token=request.cookies.get("login_token")
     if login_token is None:
-        raise HTTPException(status_code=400,detail="Missing token")
+        logging.info("authentication failed")
+        raise HTTPException(status_code=401,detail={"success":"false","Reason":"Authentication error"})
     else:
+        try:
+          decode_token(login_token)
+        except Exception as e:
+           raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
         stmt=select(Owners.id).where(Owners.name==owner_name,Owners.phone==owner_phone)
         db_owner=db.execute(stmt).scalars().all()
         if not db_owner:
@@ -218,10 +232,10 @@ def post_createpets(request:Request,name:str,species:str,breed:str,age:int,owner
         else:     
             pet=Pet(name,species,breed,age,db_owner[0])
             try:
-                logging.warning("Entered details in wrong format")
                 validated_entry=Valid_Pets.model_validate(pet)
             except Exception as e:
-                raise HTTPException(status_code=400,detail=str(e))
+                logging.warning("Entered details in wrong format")
+                raise HTTPException(status_code=422,detail=str(e))
             
             db_pet=Pets(name=validated_entry.name,species=validated_entry.species,breed=validated_entry.breed,age=validated_entry.age,owner_id=validated_entry.owner_id,created_at=datetime.now(UTC))
             db.add(db_pet)
@@ -233,8 +247,13 @@ def post_createpets(request:Request,name:str,species:str,breed:str,age:int,owner
 def delete_pets_delete(request:Request,db=Depends(get_db),id:int=Form(...)):
     login_token=request.cookies.get("login_token")
     if login_token is None:
-        raise HTTPException(status_code=400,detail="Missing token")
+        logging.info("authentication failed")
+        raise HTTPException(status_code=401,detail={"success":"false","Reason":"Authentication error"})
     else:
+        try:
+          decode_token(login_token)
+        except Exception as e:
+           raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
         stmt=select(Pets).where(Pets.id==id)
         pet=db.scalar(stmt)
 
@@ -257,8 +276,13 @@ def delete_pets_delete(request:Request,db=Depends(get_db),id:int=Form(...)):
 def put_pets(request:Request,id:int,name:str|None=None,species:str|None=None,breed:str|None=None,age:int|None=None,owner_id:int|None=None,db=Depends(get_db)):
     login_token=request.cookies.get("login_token")
     if login_token is None:
-        raise HTTPException(status_code=400,detail="Missing token")
+        logging.info("authentication failed")
+        raise HTTPException(status_code=401,detail={"success":"false","Reason":"Authentication error"})
     else:
+        try:
+          decode_token(login_token)
+        except Exception as e:
+           raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
         stmt=select(Pets).where(Pets.id==id)
         db_pet = db.execute(stmt).scalar_one_or_none()
         if not db_pet:
@@ -338,8 +362,13 @@ def get_pets_create(page_number:int,pet_id:int,db=Depends(get_db)):
 def post_pet_visit(request:Request,pet_id:int,reason: str,notes: str,visit_date: date,db=Depends(get_db)):
     login_token=request.cookies.get("login_token")
     if login_token is None:
-        raise HTTPException(status_code=400,detail="Missing token")
+        logging.info("authentication failed")
+        raise HTTPException(status_code=401,detail={"success":"false","Reason":"Authentication error"})
     else:
+        try:
+          decode_token(login_token)
+        except Exception as e:
+           raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
         stmt=select(Pets).where(Pets.id==pet_id)
         db_pet = db.execute(stmt).scalar_one_or_none()
 
@@ -352,7 +381,7 @@ def post_pet_visit(request:Request,pet_id:int,reason: str,notes: str,visit_date:
                validated_visit=Valid_Visits.model_validate(visit)
             except Exception as e:
                 logging.warning("Entered details in wrong format")
-                raise HTTPException(status_code=400,detail=str(e))
+                raise HTTPException(status_code=422,detail=str(e))
 
             db_visit=Visits(pet_id=validated_visit.pet_id,reason=validated_visit.reason,notes=validated_visit.notes,visit_date=validated_visit.visit_date,created_at=datetime.now(UTC))
             db.add(db_visit)
@@ -364,8 +393,13 @@ def post_pet_visit(request:Request,pet_id:int,reason: str,notes: str,visit_date:
 def put_pet_visits(request:Request,pet_id:int,visit_date:date,reason:str|None=None,notes:str|None=None,db=Depends(get_db)):
     login_token=request.cookies.get("login_token")
     if login_token is None:
-        raise HTTPException(status_code=400,detail="Missing token")
+        logging.info("authentication failed")
+        raise HTTPException(status_code=401,detail={"success":"false","Reason":"Authentication error"})
     else:
+        try:
+          decode_token(login_token)
+        except Exception as e:
+           raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
         stmt=select(Visits).where(Visits.pet_id==pet_id,Visits.visit_date==visit_date)
         db_visit = db.execute(stmt).scalar_one_or_none()
 
@@ -394,8 +428,12 @@ def put_pet_visits(request:Request,pet_id:int,visit_date:date,reason:str|None=No
 def delete_pet_visits(request:Request,pet_id:int,visit_date:date,db=Depends(get_db)):
     login_token=request.cookies.get("login_token")
     if login_token is None:
-        raise HTTPException(status_code=400,detail="Missing token")
+        raise HTTPException(status_code=401,detail={"success":"false","Reason":"Authentication error"})
     else:
+        try:
+          decode_token(login_token)
+        except Exception as e:
+           raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
         stmt=select(Visits).where(Visits.pet_id==pet_id,Visits.visit_date==visit_date)
         db_visit=db.execute(stmt).scalar_one_or_none()
         if db_visit:
@@ -457,9 +495,12 @@ def post_user_login(user_login:Valid_UserLogin,db=Depends(get_db)):
 def get_user_context(request:Request):
     login_token=request.cookies.get("login_token")
     if login_token is None:
-        raise HTTPException(status_code=400,detail="Missing token")
-    
-    details=decode_token(login_token)
+        logging.info("authentication failed")
+        raise HTTPException(status_code=404,detail={"success":"false","Reason":"Entry not found"})
+    try:
+     details=decode_token(login_token)
+    except Exception as e:
+        raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
     
     logging.info("Successfully returned details")
     return details

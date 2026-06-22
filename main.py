@@ -76,6 +76,7 @@ async def on_startup():
 async def on_shutdown():
     logging.info("Application is closesd")
    
+        
 
 #async ->tells the code to do other works while it runs in backgroud (if the func needs to wait for something)
 #await ->pause here until the result is ready

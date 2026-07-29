@@ -1,4 +1,5 @@
-from fastapi import Request,Depends,HTTPException,Cookie,APIRouter,Response
+from fastapi import Request,Depends,HTTPException,Cookie,APIRouter
+from fastapi.responses import JSONResponse
 import logging
 from sqlalchemy import select
 from Database.database import get_db
@@ -58,7 +59,7 @@ def post_user_login(user_login:Valid_UserLogin,db=Depends(get_db)):
         raise HTTPException(status_code=400,detail="Incorrect password")
     
     token=create_token(str(db_user.id),db_user.email,db_user.role.value)
-    response=Response()
+    response=JSONResponse(content={"response":"Login Successful","login_token":token})
     response.set_cookie(key="login_token",value=token,httponly=True)
     
     logging.info("Login successful")

@@ -60,7 +60,7 @@ def post_user_login(user_login:Valid_UserLogin,db=Depends(get_db)):
     
     token=create_token(str(db_user.id),db_user.email,db_user.role.value)
     response=JSONResponse(content={"response":"Login Successful","login_token":token})
-    response.set_cookie(key="login_token",value=token,httponly=True)
+    response.set_cookie(key="login_token",value=token,httponly=True,secure=True,samesite="none",)
     
     logging.info("Login successful")
     return response

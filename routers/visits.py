@@ -8,7 +8,7 @@ from Database.models import Pets,Visits
 from datetime import datetime,UTC,date
 from auth import decode_token
 
-router=APIRouter(prefix="/pets/{pet_id}/visits",tags=["Visits"])
+router=APIRouter(prefix="/pets/{pet_id}/visits",tags=["Visits"],dependencies=[Depends(decode_token)])
 
 class Visit:
     pet_id:int

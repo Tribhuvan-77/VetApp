@@ -6,8 +6,9 @@ from auth import decode_token
 from schemas import Valid_Pets
 from Database.models import Pets,Owners
 from datetime import datetime,UTC
+from auth import decode_token
 
-router=APIRouter(prefix="/pets",tags=["Pets"])
+router=APIRouter(prefix="/pets",tags=["Pets"],dependencies=[Depends(decode_token)])
 class Pet:
     name:str
     species:str
@@ -55,110 +56,85 @@ def get_pets(species: str | None = None,breed: str | None = None,owner_name: str
     print(db_pets)
 
 @router.post("/create")
-def post_createpets(request:Request,name:str,species:str,breed:str,age:int,owner_name:str,owner_phone:str,db=Depends(get_db)):
-    login_token=request.cookies.get("login_token")
-    if login_token is None:
-        logging.info("authentication failed")
-        raise HTTPException(status_code=401,detail={"success":"false","Reason":"Authentication error"})
-    else:
+def post_createpets(name:str,species:str,breed:str,age:int,owner_name:str,owner_phone:str,db=Depends(get_db)):
+
+    stmt=select(Owners.id).where(Owners.name==owner_name,Owners.phone==owner_phone)
+    db_owner=db.execute(stmt).scalars().all()
+    if not db_owner:
+        logging.warning("No entry of the owner")
+        raise HTTPException(status_code=400,detail="owner not exisiting")
+    else:     
+        pet=Pet(name,species,breed,age,db_owner[0])
         try:
-           decode_token(login_token)
+            validated_entry=Valid_Pets.model_validate(pet)
         except Exception as e:
-           raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
-        stmt=select(Owners.id).where(Owners.name==owner_name,Owners.phone==owner_phone)
-        db_owner=db.execute(stmt).scalars().all()
-        if not db_owner:
-            logging.warning("No entry of the owner")
-            raise HTTPException(status_code=400,detail="owner not exisiting")
-        else:     
-            pet=Pet(name,species,breed,age,db_owner[0])
-            try:
-                validated_entry=Valid_Pets.model_validate(pet)
-            except Exception as e:
-                logging.warning("Entered details in wrong format")
-                raise HTTPException(status_code=422,detail=str(e))
-            
-            db_pet=Pets(name=validated_entry.name,species=validated_entry.species,breed=validated_entry.breed,age=validated_entry.age,owner_id=validated_entry.owner_id,created_at=datetime.now(UTC))
-            db.add(db_pet)
-            db.commit()
-            logging.info("created a pet entry")
-            return "Created the entry"
+            logging.warning("Entered details in wrong format")
+            raise HTTPException(status_code=422,detail=str(e))
+        
+        db_pet=Pets(name=validated_entry.name,species=validated_entry.species,breed=validated_entry.breed,age=validated_entry.age,owner_id=validated_entry.owner_id,created_at=datetime.now(UTC))
+        db.add(db_pet)
+        db.commit()
+        logging.info("created a pet entry")
+        return "Created the entry"
 
 @router.delete("/delete")
 def delete_pets_delete(request:Request,db=Depends(get_db),id:int=Form(...)):
-    login_token=request.cookies.get("login_token")
-    if login_token is None:
-        logging.info("authentication failed")
-        raise HTTPException(status_code=401,detail={"success":"false","Reason":"Authentication error"})
+    stmt=select(Pets).where(Pets.id==id)
+    pet=db.scalar(stmt)
+
+    if pet:
+        pet.is_deleted=True
+        pet.deleted_at=datetime.now(UTC)
+
+        db.commit()
+        db.refresh(pet)
+        logging.info("Deleted pet entry")
+        return "Deleted the pet entry"
+
     else:
-        try:
-          decode_token(login_token)
-        except Exception as e:
-           raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
-        stmt=select(Pets).where(Pets.id==id)
-        pet=db.scalar(stmt)
-
-        if pet:
-            pet.is_deleted=True
-            pet.deleted_at=datetime.now(UTC)
-
-            db.commit()
-            db.refresh(pet)
-            logging.info("Deleted pet entry")
-            return "Deleted the pet entry"
-
-        else:
-            logging.warning("pet id not found")
-            raise HTTPException(status_code=400,detail="id not found")
+        logging.warning("pet id not found")
+        raise HTTPException(status_code=400,detail="id not found")
     
 
 
 @router.put("/update")
 def put_pets(request:Request,id:int,name:str|None=None,species:str|None=None,breed:str|None=None,age:int|None=None,owner_id:int|None=None,db=Depends(get_db)):
-    login_token=request.cookies.get("login_token")
-    if login_token is None:
-        logging.info("authentication failed")
-        raise HTTPException(status_code=401,detail={"success":"false","Reason":"Authentication error"})
+
+    stmt=select(Pets).where(Pets.id==id)
+    db_pet = db.execute(stmt).scalar_one_or_none()
+    if not db_pet:
+        logging.warning("pet id not found")
+        raise HTTPException(status_code=400,detail="Invalid id")
     else:
-        try:
-          decode_token(login_token)
-        except Exception as e:
-           raise HTTPException(status_code=404,detail={"success":"false","Reason":f"{str(e)}"})
-        stmt=select(Pets).where(Pets.id==id)
-        db_pet = db.execute(stmt).scalar_one_or_none()
-        if not db_pet:
-            logging.warning("pet id not found")
-            raise HTTPException(status_code=400,detail="Invalid id")
-        else:
-            pet = db.scalar(select(Pets).where(Pets.id == id))
-            if pet:
-                if name:
-                 pet.name = name
-                if species:
-                 pet.species = species
-                if breed:
-                 pet.breed = breed
-                if age:
-                 pet.age = age
+        pet = db.scalar(select(Pets).where(Pets.id == id))
+        if pet:
+            if name:
+                pet.name = name
+            if species:
+                pet.species = species
+            if breed:
+                pet.breed = breed
+            if age:
+                pet.age = age
 
-                if owner_id:
-                 stmt=select(Owners.id).where(Owners.name==owner_id)
-                db_owner=db.execute(stmt).scalars().all()
-                if not db_owner:
-                    logging.warning("Owner id not found")
-                    raise HTTPException(status_code=400,detail="owner id not found")
-                else:
-                 pet.owner_id=db_owner[0]
-                 pet.updated_at=datetime.now(UTC)
+            if owner_id:
+                stmt=select(Owners.id).where(Owners.name==owner_id)
+            db_owner=db.execute(stmt).scalars().all()
+            if not db_owner:
+                logging.warning("Owner id not found")
+                raise HTTPException(status_code=400,detail="owner id not found")
             else:
-                logging.warning("pet id not found")
-                raise HTTPException(status_code=400,detail="pet id not found")
+                pet.owner_id=db_owner[0]
+                pet.updated_at=datetime.now(UTC)
+        else:
+            logging.warning("pet id not found")
+            raise HTTPException(status_code=400,detail="pet id not found")
 
-            db.commit()
-            db.refresh(pet)
-            logging.info("Updated pet info")
+        db.commit()
+        db.refresh(pet)
+        logging.info("Updated pet info")
 
-            return "Updated the pet entry"
+        return "Updated the pet entry"
 
 
 @router.get("/{pet_id}")

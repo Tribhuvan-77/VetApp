@@ -5,8 +5,9 @@ from Database.database import get_db
 from schemas import Valid_Owners
 from Database.models import Owners
 from datetime import datetime,UTC
+from auth import decode_token
 
-router=APIRouter(prefix="/owner",tags=["Owners"])
+router=APIRouter(prefix="/owner",tags=["Owners"],dependencies=[Depends(decode_token)])
 class Owner:
     name:str
     phone:str

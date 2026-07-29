@@ -1,6 +1,7 @@
 from fastapi import FastAPI,Request
-
+from fastapi.middleware.cors import CORSMiddleware
 from routers.owners import router as owners_router
+
 from routers.pets import router as pets_router
 from routers.visits import router as visits_router
 from routers.users import router as users_router
@@ -19,6 +20,15 @@ Base.metadata.create_all(bind=engine)
 logging.basicConfig(level=logging.DEBUG,format="%(asctime)s - %(levelname)s - %(message)s")
 app=FastAPI()
 
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")

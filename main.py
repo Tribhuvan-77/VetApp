@@ -24,10 +24,9 @@ app=FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://id-preview--b3daaf91-9582-4c4a-8179-0e7ceea55d1b.lovable.app"
-    ],
+    allow_origin_regex=r"https://.*\.lovable\.app",
     allow_credentials=True,
+    allow_methods=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

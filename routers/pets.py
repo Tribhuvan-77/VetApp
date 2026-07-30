@@ -27,13 +27,24 @@ class Pet:
 def get_pets(page_number:int,db=Depends(get_db)):
     page_size=10
     offset=(page_number-1)*page_size
-    stmt=select(Pets.id,Pets.name).offset(offset).limit(page_number)
-    db_pets=db.execute(stmt).all()
+    stmt = select(Pets).offset(offset).limit(page_size)
 
-    resp_dict={}
-    for i in db_pets:
-        resp_dict[i[0]]=i[1]
-    return resp_dict
+    db_pets = db.execute(stmt).scalars().all()
+
+    response = []
+
+    for pet in db_pets:
+        if not pet.is_deleted:
+           response.append({
+            "id": pet.id,
+            "name": pet.name,
+            "species": pet.species,
+            "breed": pet.breed,
+            "age": pet.age,
+            "owner_id": pet.owner_id
+        })
+
+    return response
 
 @router.get("/filter")
 def get_pets(species: str | None = None,breed: str | None = None,owner_name: str | None = None,min_age: int | None = None,max_age: int | None = None,search: str | None = None,db=Depends(get_db)):
@@ -143,14 +154,15 @@ def get_petsid(request:Request,pet_id:int,db=Depends(get_db)):
     db_pet = db.execute(stmt).scalar_one_or_none()
 
     if db_pet:
-        resp_dict={}
-        resp_dict["id"]=db_pet.id
-        resp_dict["name"]=db_pet.name
-        resp_dict["species"]=db_pet.species
-        resp_dict["breed"]=db_pet.breed
-        resp_dict["age"]=db_pet.age
-        resp_dict["owner_id"]=db_pet.owner_id
-        return resp_dict
+      response = {
+       "id": db_pet.id,
+       "name": db_pet.name,
+    "species": db_pet.species,
+    "breed": db_pet.breed,
+    "age": db_pet.age,
+    "owner_id": db_pet.owner_id
+     }
+      return response
     else:
         logging.warning("Pet id not found")
         raise HTTPException(status_code=400,detail="invalid id")

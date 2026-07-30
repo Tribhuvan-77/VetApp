@@ -23,14 +23,17 @@ class Owner:
 def get_owner(page_number:int,db=Depends(get_db)):
     page_size=10
     offset=(page_number-1)*page_size
-    stmt=select(Owners.id,Owners.name,Owners.is_deleted).offset(offset).limit(page_size)
+    stmt = select(Owners).offset(offset).limit(page_size)
     db_owner=db.execute(stmt).all()
-    resp_dict={}
-    for i in db_owner:
-        if i[2]==False:
-         resp_dict[i[0]]=i[1]
-    return resp_dict
+    response = []
 
+    for owner in db_owner:
+        if not owner.is_deleted:
+            response.append({
+                "id": owner.id,
+                "name": owner.name
+            })
+    return response
 @router.post("/create")
 def post_owner_create(name:str,phone:str,email:str,db=Depends(get_db)):
     owner=Owner(name,phone,email)

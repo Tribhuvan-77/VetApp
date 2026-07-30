@@ -25,7 +25,7 @@ app=FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://273feac7-48a3-482b-8508-c8799bbd4c0e.lovableproject.com"
+        "https://b3daaf91-9582-4c4a-8179-0e7ceea55d1b.lovableproject.com"
     ],
     allow_credentials=True,
     allow_methods=["*"],

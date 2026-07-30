@@ -25,7 +25,7 @@ app=FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://b3daaf91-9582-4c4a-8179-0e7ceea55d1b.lovableproject.com"
+        "https://id-preview--b3daaf91-9582-4c4a-8179-0e7ceea55d1b.lovable.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],

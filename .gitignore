@@ -1,15 +1,7 @@
-# Python
 __pycache__/
 *.py[cod]
-
-# Database
-pets.db
-
-# Virtual environment
-learning/
-
-# Environment variables
 .env
-
-# macOS
+learning/
+Database/pets.db
+pets.db
 .DS_Store
